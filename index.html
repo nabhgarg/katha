@@ -1,0 +1,2113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Katha — Your story. Your choice.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ---------- RESET / BASE ---------- */
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #FFFFFF;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ---------- APP CONTAINER ---------- */
+  #app {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #08080F;
+  }
+
+  /* Desktop: phone-frame */
+  @media (min-width: 500px) {
+    body { background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 70%); }
+    #app {
+      width: 390px;
+      height: 844px;
+      border-radius: 40px;
+      box-shadow:
+        0 0 0 8px #0a0a14,
+        0 0 80px rgba(255, 176, 32, 0.18),
+        0 30px 80px rgba(0,0,0,0.6);
+    }
+  }
+
+  /* ---------- SCREENS ---------- */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .screen.active {
+    display: flex;
+  }
+
+  /* ---------- BOTTOM NAV ---------- */
+  .bnav {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    background: rgba(8, 8, 15, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    z-index: 10;
+  }
+  .bnav .nav-item {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: #A0A0B8;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    background: transparent;
+    border: none;
+    font-family: inherit;
+  }
+  .bnav .nav-item .ic { font-size: 18px; line-height: 1; }
+  .bnav .nav-item.active { color: #FFB020; }
+  .bnav .nav-item:hover { color: #FFFFFF; }
+  .bnav .nav-item.active:hover { color: #FFB020; }
+
+  /* ---------- BUTTONS ---------- */
+  .btn-gold {
+    background: linear-gradient(135deg, #FFB020 0%, #FF8C00 100%);
+    color: #08080F;
+    border: none;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+    box-shadow: 0 8px 24px rgba(255, 176, 32, 0.3);
+  }
+  .btn-gold:hover { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(255, 176, 32, 0.4); }
+  .btn-gold:active { transform: translateY(0); }
+
+  .btn-ghost {
+    background: transparent;
+    color: #FFFFFF;
+    border: 1px solid rgba(255,255,255,0.18);
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.28); }
+
+  .btn-text {
+    background: transparent;
+    color: #A0A0B8;
+    border: none;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 0.2s ease;
+  }
+  .btn-text:hover { color: #FFFFFF; }
+
+  .close-x {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(8,8,15,0.6);
+    color: #FFFFFF;
+    border: 1px solid rgba(255,255,255,0.12);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-family: inherit;
+    line-height: 1;
+  }
+  .close-x:hover { background: rgba(8,8,15,0.85); }
+
+  /* ====================================================
+     1. SPLASH
+  ==================================================== */
+  #s-splash {
+    background: #000;
+    align-items: center;
+    justify-content: center;
+  }
+  .splash-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    animation: fadeUp 1.2s cubic-bezier(.2,.7,.2,1);
+  }
+  .splash-logo {
+    font-size: 64px;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    color: #FFFFFF;
+    line-height: 1;
+  }
+  .splash-logo .dot { color: #FFB020; }
+  .splash-tag {
+    font-size: 15px;
+    color: #A0A0B8;
+    font-weight: 400;
+    letter-spacing: 0.2px;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ====================================================
+     2. FEED
+  ==================================================== */
+  #s-feed { background: #000; }
+
+  /* Scroll-snap container */
+  .feed-reel {
+    position: absolute;
+    inset: 0;
+    bottom: 60px;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .feed-reel::-webkit-scrollbar { display: none; }
+
+  /* Each story card fills the visible area */
+  .feed-card {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    scroll-snap-align: start;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .feed-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+  }
+  .feed-fallback {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 30% 40%, rgba(255,176,32,0.25) 0%, transparent 60%),
+      linear-gradient(135deg, #1a1a2e 0%, #08080F 100%);
+    z-index: 0;
+  }
+  .feed-grad {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(to bottom,
+        rgba(8,8,15,0.75) 0%,
+        rgba(8,8,15,0.15) 30%,
+        rgba(8,8,15,0) 55%,
+        rgba(8,8,15,0.6) 75%,
+        rgba(8,8,15,0.96) 100%);
+    z-index: 2;
+  }
+  .feed-content {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+  }
+  .feed-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding-top: 36px;
+  }
+  .feed-top-text { flex: 1; padding-left: 48px; }
+  .feed-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+  }
+  .feed-badge {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 5px 11px;
+    background: rgba(255,176,32,0.16);
+    color: #FFB020;
+    border: 1px solid rgba(255,176,32,0.35);
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+  .feed-spacer { flex: 1; }
+  .feed-bottom { display: flex; flex-direction: column; gap: 14px; }
+  .feed-hook {
+    font-size: 17px;
+    font-weight: 500;
+    color: #FFFFFF;
+    line-height: 1.4;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  }
+  .feed-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: #A0A0B8;
+    font-weight: 500;
+  }
+  .feed-meta .dot-sep { width: 3px; height: 3px; background: #A0A0B8; border-radius: 50%; }
+  .feed-play-btn {
+    height: 52px;
+    border-radius: 14px;
+    font-size: 15px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* ====================================================
+     3. PLAYER
+  ==================================================== */
+  #s-player { background: #000; }
+  .scene-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+    transform-origin: center center;
+  }
+  @keyframes kenBurns {
+    from { transform: scale(1) translateX(0); }
+    to { transform: scale(1.07) translateX(-1.5%); }
+  }
+  .scene-fallback {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(255,176,32,0.18), transparent 70%),
+      linear-gradient(180deg, #1a1a2e 0%, #08080F 100%);
+    z-index: 0;
+  }
+  .scene-grad {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom,
+      rgba(8,8,15,0.55) 0%,
+      rgba(8,8,15,0.05) 18%,
+      rgba(8,8,15,0) 45%,
+      rgba(8,8,15,0.85) 100%);
+    z-index: 2;
+    pointer-events: none;
+  }
+  .player-tap {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    cursor: pointer;
+  }
+  .player-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 15;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .ep-dots {
+    flex: 1;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+  }
+  .ep-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    transition: background 0.3s ease, transform 0.3s ease;
+  }
+  .ep-dot.active {
+    background: #FFB020;
+    transform: scale(1.25);
+    box-shadow: 0 0 10px rgba(255,176,32,0.6);
+  }
+  .ep-dot.done { background: #FFB020; }
+  .player-top-spacer { width: 36px; }
+  .scene-progress {
+    position: absolute;
+    top: 64px;
+    left: 16px;
+    right: 16px;
+    z-index: 15;
+    display: flex;
+    gap: 5px;
+  }
+  .scene-seg {
+    flex: 1;
+    height: 2.5px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .scene-seg.active, .scene-seg.done {
+    background: #FFB020;
+  }
+  .subtitle-stripe {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 15;
+    min-height: 160px;
+    background: rgba(8,8,15,0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(255,176,32,0.18);
+    padding: 18px 18px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .sub-hl {
+    font-size: 18px;
+    font-weight: 600;
+    color: #FFFFFF;
+    line-height: 1.35;
+    border-left: 3px solid #FFB020;
+    background: rgba(255,176,32,0.08);
+    padding: 8px 10px 8px 12px;
+    border-radius: 0 6px 6px 0;
+    letter-spacing: 0.1px;
+  }
+  .sub-body {
+    font-size: 14px;
+    color: #A0A0B8;
+    font-weight: 400;
+    line-height: 1.5;
+    padding: 0 2px;
+  }
+  .sub-hint {
+    font-size: 11px;
+    color: rgba(255,176,32,0.7);
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    align-self: flex-end;
+    margin-top: 2px;
+    animation: blink 1.6s ease-in-out infinite;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+  }
+
+  /* ====================================================
+     4. CHOICE
+  ==================================================== */
+  #s-choice { background: #000; }
+  .choice-half {
+    flex: 1;
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+    transition: flex 0.6s cubic-bezier(.4,.0,.2,1), opacity 0.6s ease;
+  }
+  .choice-half .ch-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-color: #1a1a2e;
+  }
+  .choice-half .ch-bg.top-fx { filter: brightness(0.7) sepia(0.2); }
+  .choice-half .ch-bg.bot-fx { filter: brightness(0.5) hue-rotate(200deg); }
+  .choice-half .ch-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(8,8,15,0.4), rgba(8,8,15,0.85));
+  }
+  .choice-half.bottom .ch-overlay {
+    background: linear-gradient(to top, rgba(8,8,15,0.4), rgba(8,8,15,0.85));
+  }
+  .choice-label {
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .choice-half.top .choice-label { bottom: 32px; }
+  .choice-half.bottom .choice-label { top: 32px; }
+  .choice-tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: #FFB020;
+    text-transform: uppercase;
+  }
+  .choice-text {
+    font-size: 22px;
+    font-weight: 600;
+    color: #FFFFFF;
+    line-height: 1.25;
+    letter-spacing: -0.2px;
+  }
+  .choice-sub {
+    font-size: 13px;
+    color: #A0A0B8;
+    font-weight: 400;
+    line-height: 1.4;
+    margin-top: 2px;
+  }
+  .choice-divider {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: rgba(255,176,32,0.35);
+    z-index: 5;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+  .choice-pill {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 6;
+    background: #FFB020;
+    color: #08080F;
+    padding: 7px 16px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    box-shadow: 0 6px 18px rgba(255,176,32,0.4);
+    pointer-events: none;
+  }
+  .choice-question {
+    position: absolute;
+    top: 70px;
+    left: 24px;
+    right: 24px;
+    z-index: 7;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 500;
+    color: #FFFFFF;
+    line-height: 1.4;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.8);
+    pointer-events: none;
+  }
+
+  /* ====================================================
+     5. END
+  ==================================================== */
+  #s-end {
+    background: #000;
+    align-items: center;
+    justify-content: flex-start;
+    overflow-y: auto;
+  }
+  .end-wrap {
+    width: 100%;
+    min-height: 100%;
+    padding: 70px 28px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    animation: endFadeUp 1.2s cubic-bezier(.2,.7,.2,1);
+  }
+  @keyframes endFadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .end-caps {
+    font-size: 11px;
+    color: #A0A0B8;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+  .end-title {
+    font-size: 32px;
+    font-weight: 800;
+    color: #FFFFFF;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+    text-align: center;
+  }
+  .end-genre {
+    font-size: 13px;
+    color: #FFB020;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .end-credits-wrap {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .credit-block {
+    text-align: center;
+    margin: 8px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .credit-name {
+    font-size: 10px;
+    color: #A0A0B8;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+  }
+  .credit-beat {
+    font-size: 20px;
+    color: #FFFFFF;
+    font-weight: 500;
+    line-height: 1.3;
+    letter-spacing: -0.2px;
+  }
+  .end-sep {
+    font-size: 13px;
+    color: #FFB020;
+    letter-spacing: 6px;
+    font-weight: 700;
+    margin: 16px 0 8px;
+  }
+  .end-actions {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .end-btn {
+    height: 50px;
+    border-radius: 14px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+  }
+  .end-btn-text {
+    height: 40px;
+    background: transparent;
+    color: #A0A0B8;
+    border: none;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .end-btn-text:hover { color: #FFFFFF; }
+
+  /* ====================================================
+     6. CREATE
+  ==================================================== */
+  #s-create { background: #08080F; }
+  .create-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 20px 80px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .create-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: -0.4px;
+    line-height: 1.15;
+  }
+  .create-title .dot { color: #FFB020; }
+  .create-sub {
+    font-size: 14px;
+    color: #A0A0B8;
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  .create-textarea-wrap {
+    margin-top: 24px;
+    position: relative;
+  }
+  .create-textarea {
+    width: 100%;
+    min-height: 120px;
+    background: #12121C;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    color: #FFFFFF;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 400;
+    padding: 16px;
+    resize: vertical;
+    line-height: 1.5;
+    transition: border-color 0.2s ease;
+    outline: none;
+  }
+  .create-textarea:focus { border-color: rgba(255,176,32,0.45); }
+  .create-textarea::placeholder { color: #6c6c80; }
+  .char-count {
+    text-align: right;
+    font-size: 11px;
+    color: #A0A0B8;
+    margin-top: 6px;
+    font-weight: 500;
+  }
+  .ideas-label {
+    font-size: 12px;
+    color: #A0A0B8;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin: 24px 0 10px;
+  }
+  .ideas-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .idea-chip {
+    padding: 11px 12px;
+    background: #1A1A2E;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    color: #FFFFFF;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    line-height: 1.3;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+  .idea-chip:hover { background: #22223a; border-color: rgba(255,176,32,0.3); }
+  .create-btn {
+    margin-top: 24px;
+    width: 100%;
+    height: 54px;
+    border-radius: 999px;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* ====================================================
+     7. GENERATING
+  ==================================================== */
+  #s-generating {
+    background: #08080F;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .gen-wrap {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    text-align: center;
+  }
+  .mandala {
+    width: 100px;
+    height: 100px;
+    position: relative;
+  }
+  .mandala svg { width: 100%; height: 100%; }
+  .ring-outer { animation: spin 8s linear infinite; transform-origin: center; transform-box: fill-box; }
+  .ring-inner { animation: spin 6s linear infinite reverse; transform-origin: center; transform-box: fill-box; }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .gen-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: -0.3px;
+    margin-top: 4px;
+  }
+  .gen-badge {
+    background: rgba(255,176,32,0.15);
+    color: #FFB020;
+    border: 1px solid rgba(255,176,32,0.4);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .gen-change {
+    font-size: 12px;
+    color: #A0A0B8;
+    text-decoration: underline;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    font-family: inherit;
+  }
+  .gen-change:hover { color: #FFFFFF; }
+  .check-list {
+    list-style: none;
+    width: 100%;
+    max-width: 280px;
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: left;
+  }
+  .check-list li {
+    font-size: 13px;
+    color: #A0A0B8;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+  }
+  .check-list li .ck {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.18);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: transparent;
+    flex-shrink: 0;
+  }
+  .check-list li.done { color: #FFFFFF; text-decoration: line-through; text-decoration-color: rgba(255,176,32,0.5); }
+  .check-list li.done .ck { background: #FFB020; border-color: #FFB020; color: #08080F; }
+  .check-list li.active { color: #FFFFFF; }
+  .check-list li.active .ck {
+    border-color: #FFB020;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,176,32,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(255,176,32,0); }
+  }
+  .gen-eta { font-size: 12px; color: #A0A0B8; margin-top: 6px; }
+  .gen-browse {
+    margin-top: 10px;
+    height: 44px;
+    padding: 0 22px;
+    border-radius: 22px;
+    font-size: 13px;
+  }
+
+  /* ====================================================
+     8. PROFILE
+  ==================================================== */
+  #s-profile { background: #08080F; }
+  .profile-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 20px 80px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .profile-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #FFB020, #FF8C00);
+    color: #08080F;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .profile-info { flex: 1; }
+  .profile-name { font-size: 18px; font-weight: 700; color: #FFFFFF; }
+  .profile-since { font-size: 12px; color: #A0A0B8; margin-top: 2px; }
+  .gear {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #1A1A2E;
+    color: #A0A0B8;
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+  }
+  .gear:hover { color: #FFFFFF; }
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 20px;
+  }
+  .stat-box {
+    background: #12121C;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 14px 8px;
+    text-align: center;
+  }
+  .stat-num { font-size: 22px; font-weight: 700; color: #FFFFFF; }
+  .stat-label {
+    font-size: 10px;
+    color: #A0A0B8;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+  .section-head {
+    font-size: 11px;
+    color: #A0A0B8;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin: 28px 0 12px;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .story-card {
+    aspect-ratio: 3 / 4;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #12121C;
+    border: 1px solid rgba(255,255,255,0.06);
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+  .story-card:hover { transform: translateY(-2px); }
+  .empty-card {
+    aspect-ratio: 3 / 4;
+    border-radius: 14px;
+    border: 1.5px dashed rgba(255,176,32,0.35);
+    background: rgba(255,176,32,0.04);
+    color: #FFB020;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    font-family: inherit;
+  }
+  .empty-card:hover { background: rgba(255,176,32,0.08); border-color: rgba(255,176,32,0.55); }
+  .empty-card .plus { font-size: 28px; font-weight: 300; line-height: 1; }
+  .empty-card .lbl { font-size: 12px; font-weight: 600; letter-spacing: 0.5px; }
+  .story-card-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .story-card-grad {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(8,8,15,0.95), rgba(8,8,15,0) 60%);
+  }
+  .story-card-title {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #FFFFFF;
+    line-height: 1.25;
+  }
+
+  /* ====================================================
+     9. EXPLORE
+  ==================================================== */
+  #s-explore { background: #08080F; }
+  .explore-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 56px 20px 80px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .explore-header {
+    font-size: 24px;
+    font-weight: 800;
+    color: #FFFFFF;
+    letter-spacing: -0.4px;
+    margin-bottom: 6px;
+  }
+  .explore-sub {
+    font-size: 13px;
+    color: #A0A0B8;
+    margin-bottom: 28px;
+  }
+  .explore-section { margin-bottom: 32px; }
+  .explore-section-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .explore-genre-icon {
+    font-size: 20px;
+    line-height: 1;
+  }
+  .explore-genre-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: -0.2px;
+  }
+  .explore-genre-count {
+    font-size: 11px;
+    color: #A0A0B8;
+    font-weight: 500;
+    margin-left: auto;
+  }
+  .explore-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .explore-card {
+    aspect-ratio: 3 / 4;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #12121C;
+    border: 1px solid rgba(255,255,255,0.06);
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+  .explore-card:hover { transform: translateY(-2px); }
+  .explore-card img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .explore-card-grad {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(8,8,15,0.96), rgba(8,8,15,0) 60%);
+  }
+  .explore-card-info {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+  }
+  .explore-card-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .badge-myth { background: rgba(255,176,32,0.2); color: #FFB020; }
+  .badge-romance { background: rgba(255,80,120,0.2); color: #FF5078; }
+  .badge-thriller { background: rgba(80,160,255,0.2); color: #50A0FF; }
+  .explore-card-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #FFFFFF;
+    line-height: 1.25;
+  }
+  .explore-card-eps {
+    font-size: 10px;
+    color: #A0A0B8;
+    margin-top: 2px;
+  }
+
+  /* ====================================================
+     10. SAVE PHONE OVERLAY
+  ==================================================== */
+  #overlay-save {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    display: none;
+  }
+  #overlay-save.active { display: block; }
+  .ov-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
+  .ov-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #12121C;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px 24px 0 0;
+    padding: 14px 22px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: sheetUp 0.4s cubic-bezier(.2,.7,.2,1);
+  }
+  @keyframes sheetUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .drag-handle {
+    width: 44px;
+    height: 4px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 2px;
+    margin: 0 auto 6px;
+  }
+  .ov-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: -0.3px;
+  }
+  .ov-title .dot { color: #FFB020; }
+  .ov-sub {
+    font-size: 13px;
+    color: #A0A0B8;
+    line-height: 1.45;
+  }
+  .ov-phone-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .ov-cc {
+    background: #1A1A2E;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    color: #FFFFFF;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 0 14px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+  }
+  .ov-phone {
+    flex: 1;
+    background: #1A1A2E;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    color: #FFFFFF;
+    font-family: inherit;
+    font-size: 15px;
+    padding: 0 14px;
+    height: 48px;
+    outline: none;
+    transition: border-color 0.2s ease;
+  }
+  .ov-phone:focus { border-color: rgba(255,176,32,0.45); }
+  .ov-otp {
+    height: 50px;
+    border-radius: 14px;
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  .ov-skip {
+    background: transparent;
+    color: #A0A0B8;
+    border: none;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 6px;
+  }
+  .ov-skip:hover { color: #FFFFFF; }
+</style>
+</head>
+<body>
+  <div id="app">
+
+    <!-- =================== SPLASH =================== -->
+    <section id="s-splash" class="screen active">
+      <div class="splash-wrap">
+        <div class="splash-logo">Katha<span class="dot">.</span></div>
+        <div class="splash-tag">Your story. Your choice.</div>
+      </div>
+    </section>
+
+    <!-- =================== FEED =================== -->
+    <section id="s-feed" class="screen">
+      <div class="feed-reel">
+
+        <!-- Card 1: Kashi Ka Khazana -->
+        <div class="feed-card">
+          <div class="feed-fallback"></div>
+          <img class="feed-bg" src="images/feedcard.png" alt="" onerror="this.style.display='none'">
+          <div class="feed-grad"></div>
+          <div class="feed-content">
+            <div class="feed-top">
+              <div class="feed-top-text">
+                <div class="feed-title">Kashi Ka Khazana</div>
+                <div class="feed-badge">Mythology · 6 episodes</div>
+              </div>
+            </div>
+            <div class="feed-spacer"></div>
+            <div class="feed-bottom">
+              <div class="feed-hook">A coin under his pillow. A king in his dreams. One boy must find the treasure of Kashi — before someone else does.</div>
+              <div class="feed-meta">
+                <span>6 episodes</span>
+                <span class="dot-sep"></span>
+                <span>~12 min</span>
+                <span class="dot-sep"></span>
+                <span>2.4k playing</span>
+              </div>
+              <button class="btn-gold feed-play-btn" onclick="startStory()">▶ Play Episode 1</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: Pehli Baarish Pehla Pyaar -->
+        <div class="feed-card">
+          <div class="feed-fallback" style="background: radial-gradient(ellipse at 40% 50%, rgba(255,80,120,0.22) 0%, transparent 60%), linear-gradient(135deg, #1a0f15 0%, #08080F 100%);"></div>
+          <img class="feed-bg" src="images/ep1-s2.png" alt="" onerror="this.style.display='none'">
+          <div class="feed-grad"></div>
+          <div class="feed-content">
+            <div class="feed-top">
+              <div class="feed-top-text">
+                <div class="feed-title">Pehli Baarish, Pehla Pyaar</div>
+                <div class="feed-badge" style="background: rgba(255,80,120,0.16); color: #FF5078; border-color: rgba(255,80,120,0.35);">Romance · 6 episodes</div>
+              </div>
+            </div>
+            <div class="feed-spacer"></div>
+            <div class="feed-bottom">
+              <div class="feed-hook">College ka first monsoon. Ek ladki. Ek shared umbrella. Aur ek decision jo sab kuch badal deta hai.</div>
+              <div class="feed-meta">
+                <span>6 episodes</span>
+                <span class="dot-sep"></span>
+                <span>~11 min</span>
+                <span class="dot-sep"></span>
+                <span>3.7k playing</span>
+              </div>
+              <button class="btn-gold feed-play-btn" style="opacity:0.55; cursor:default;" onclick="alert('Coming soon!')">▶ Play Episode 1</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3: Raat Ko Phone Aaya -->
+        <div class="feed-card">
+          <div class="feed-fallback" style="background: radial-gradient(ellipse at 50% 30%, rgba(80,160,255,0.18) 0%, transparent 60%), linear-gradient(135deg, #0a0f1a 0%, #08080F 100%);"></div>
+          <img class="feed-bg" src="images/ep4-s1.png" alt="" onerror="this.style.display='none'">
+          <div class="feed-grad"></div>
+          <div class="feed-content">
+            <div class="feed-top">
+              <div class="feed-top-text">
+                <div class="feed-title">Raat Ko Phone Aaya</div>
+                <div class="feed-badge" style="background: rgba(80,160,255,0.16); color: #50A0FF; border-color: rgba(80,160,255,0.35);">Thriller · 6 episodes</div>
+              </div>
+            </div>
+            <div class="feed-spacer"></div>
+            <div class="feed-bottom">
+              <div class="feed-hook">2 AM. Unknown number. Caller ID: your own name. Aur tu ghar pe akela hai.</div>
+              <div class="feed-meta">
+                <span>6 episodes</span>
+                <span class="dot-sep"></span>
+                <span>~13 min</span>
+                <span class="dot-sep"></span>
+                <span>1.8k playing</span>
+              </div>
+              <button class="btn-gold feed-play-btn" style="opacity:0.55; cursor:default;" onclick="alert('Coming soon!')">▶ Play Episode 1</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- .feed-reel -->
+      <nav class="bnav">
+        <button class="nav-item active" data-tab="feed" onclick="navTo('feed')"><span class="ic">🏠</span><span>Feed</span></button>
+        <button class="nav-item" data-tab="explore" onclick="navTo('explore')"><span class="ic">🔍</span><span>Explore</span></button>
+        <button class="nav-item" data-tab="create" onclick="navTo('create')"><span class="ic">＋</span><span>Create</span></button>
+        <button class="nav-item" data-tab="profile" onclick="navTo('profile')"><span class="ic">◉</span><span>You</span></button>
+      </nav>
+    </section>
+
+    <!-- =================== PLAYER =================== -->
+    <section id="s-player" class="screen">
+      <div class="scene-fallback"></div>
+      <img id="scene-img" class="scene-img" src="" alt="" onerror="this.style.display='none'">
+      <div class="scene-grad"></div>
+      <div class="player-tap" id="player-tap" onclick="advanceScene()"></div>
+      <div class="player-top">
+        <button class="close-x" style="position:static;" onclick="navTo('feed')" aria-label="close">×</button>
+        <div class="ep-dots" id="ep-dots"></div>
+        <div class="player-top-spacer"></div>
+      </div>
+      <div class="scene-progress" id="scene-progress"></div>
+      <div class="subtitle-stripe">
+        <div class="sub-hl" id="sub-hl">—</div>
+        <div class="sub-body" id="sub-body">—</div>
+        <div class="sub-hint">tap to continue →</div>
+      </div>
+    </section>
+
+    <!-- =================== CHOICE =================== -->
+    <section id="s-choice" class="screen">
+      <button class="close-x" onclick="navTo('feed')" aria-label="close">×</button>
+      <div class="choice-question" id="choice-q">—</div>
+      <div class="choice-half top" id="choice-a-half" onclick="makeChoice('A')">
+        <div class="ch-bg top-fx" id="choice-a-bg"></div>
+        <div class="ch-overlay"></div>
+        <div class="choice-label">
+          <span class="choice-tag">Option A</span>
+          <div class="choice-text" id="choice-a-text">—</div>
+          <div class="choice-sub" id="choice-a-sub">—</div>
+        </div>
+      </div>
+      <div class="choice-divider"></div>
+      <div class="choice-pill">tap a side</div>
+      <div class="choice-half bottom" id="choice-b-half" onclick="makeChoice('B')">
+        <div class="ch-bg bot-fx" id="choice-b-bg"></div>
+        <div class="ch-overlay"></div>
+        <div class="choice-label">
+          <span class="choice-tag">Option B</span>
+          <div class="choice-text" id="choice-b-text">—</div>
+          <div class="choice-sub" id="choice-b-sub">—</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== END =================== -->
+    <section id="s-end" class="screen">
+      <div class="end-wrap">
+        <div class="end-caps">A Katha Story</div>
+        <div class="end-title">Kashi Ka Khazana</div>
+        <div class="end-genre">Mythology</div>
+        <div class="end-credits-wrap" id="end-credits"></div>
+        <div class="end-sep">— END —</div>
+        <div class="end-actions">
+          <button class="btn-gold end-btn" onclick="shareEnding()">↗ Share your ending</button>
+          <button class="btn-ghost end-btn" onclick="startStory()">Try different choices</button>
+          <button class="end-btn-text" onclick="navTo('feed')">← Back to feed</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== CREATE =================== -->
+    <section id="s-create" class="screen">
+      <div class="create-scroll">
+        <div class="create-title">Create a story<span class="dot">.</span></div>
+        <div class="create-sub">Describe your story idea in a few words. Our AI will turn it into a 6-episode interactive Katha.</div>
+
+        <div class="create-textarea-wrap">
+          <textarea class="create-textarea" id="story-prompt" maxlength="280"
+            placeholder="A young coder in Bangalore discovers his startup is being haunted by his grandfather's old company..."
+            oninput="updateCharCount()"></textarea>
+          <div class="char-count"><span id="char-count">0</span>/280</div>
+        </div>
+
+        <div class="ideas-label">Need ideas?</div>
+        <div class="ideas-grid">
+          <button class="idea-chip" onclick="useIdea(this)">Mumbai local train mein ek mysterious co-passenger</button>
+          <button class="idea-chip" onclick="useIdea(this)">College ka time-travel via WhatsApp</button>
+          <button class="idea-chip" onclick="useIdea(this)">A Diwali ghost story from Old Delhi</button>
+          <button class="idea-chip" onclick="useIdea(this)">Startup founder meets his future self</button>
+        </div>
+
+        <button class="btn-gold create-btn" onclick="startGenerating()">Create Story →</button>
+      </div>
+      <nav class="bnav">
+        <button class="nav-item" data-tab="feed" onclick="navTo('feed')"><span class="ic">🏠</span><span>Feed</span></button>
+        <button class="nav-item" data-tab="explore" onclick="navTo('explore')"><span class="ic">🔍</span><span>Explore</span></button>
+        <button class="nav-item active" data-tab="create" onclick="navTo('create')"><span class="ic">＋</span><span>Create</span></button>
+        <button class="nav-item" data-tab="profile" onclick="navTo('profile')"><span class="ic">◉</span><span>You</span></button>
+      </nav>
+    </section>
+
+    <!-- =================== GENERATING =================== -->
+    <section id="s-generating" class="screen">
+      <div class="gen-wrap">
+        <div class="mandala">
+          <svg viewBox="0 0 100 100" fill="none">
+            <g class="ring-outer" style="transform-origin: 50px 50px;">
+              <circle cx="50" cy="50" r="44" stroke="#FFB020" stroke-width="1.2" stroke-dasharray="3 5" opacity="0.85"/>
+            </g>
+            <g class="ring-inner" style="transform-origin: 50px 50px;">
+              <circle cx="50" cy="50" r="30" stroke="#FFB020" stroke-width="1" stroke-dasharray="2 4" opacity="0.7"/>
+            </g>
+            <circle cx="50" cy="50" r="4" fill="#FFB020"/>
+            <circle cx="50" cy="50" r="9" fill="none" stroke="#FFB020" stroke-width="0.6" opacity="0.5"/>
+          </svg>
+        </div>
+        <div class="gen-title">Your story is being born</div>
+        <div class="gen-badge">✓ Mythology detected!</div>
+        <button class="gen-change" onclick="alert('Genre selector coming soon')">Change genre</button>
+        <ul class="check-list" id="check-list">
+          <li class="done"><span class="ck">✓</span>Understanding your idea</li>
+          <li class="done"><span class="ck">✓</span>Detecting genre &amp; tone</li>
+          <li class="active"><span class="ck">·</span>Writing 6 episode arcs</li>
+          <li><span class="ck"></span>Generating scene visuals</li>
+          <li><span class="ck"></span>Composing background score</li>
+          <li><span class="ck"></span>Final polish</li>
+        </ul>
+        <div class="gen-eta">Estimated: ~2 minutes</div>
+        <button class="btn-ghost gen-browse" onclick="navTo('feed')">Browse stories meanwhile</button>
+      </div>
+    </section>
+
+    <!-- =================== PROFILE =================== -->
+    <section id="s-profile" class="screen">
+      <div class="profile-scroll">
+        <div class="profile-head">
+          <div class="avatar">V</div>
+          <div class="profile-info">
+            <div class="profile-name">Vikram</div>
+            <div class="profile-since">Member since May 2026</div>
+          </div>
+          <button class="gear" aria-label="settings">⚙</button>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-box">
+            <div class="stat-num">0</div>
+            <div class="stat-label">Created</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num">1</div>
+            <div class="stat-label">Played</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num">—</div>
+            <div class="stat-label">Views</div>
+          </div>
+        </div>
+
+        <div class="section-head">My Stories</div>
+        <div class="grid-2">
+          <button class="empty-card" onclick="navTo('create')">
+            <span class="plus">+</span>
+            <span class="lbl">Create</span>
+          </button>
+        </div>
+
+        <div class="section-head">Played</div>
+        <div class="grid-2">
+          <div class="story-card" onclick="navTo('feed')">
+            <img class="story-card-img" src="images/feedcard.png" alt="" onerror="this.style.display='none'">
+            <div class="story-card-grad"></div>
+            <div class="story-card-title">Kashi Ka Khazana</div>
+          </div>
+        </div>
+      </div>
+      <nav class="bnav">
+        <button class="nav-item" data-tab="feed" onclick="navTo('feed')"><span class="ic">🏠</span><span>Feed</span></button>
+        <button class="nav-item" data-tab="explore" onclick="navTo('explore')"><span class="ic">🔍</span><span>Explore</span></button>
+        <button class="nav-item" data-tab="create" onclick="navTo('create')"><span class="ic">＋</span><span>Create</span></button>
+        <button class="nav-item active" data-tab="profile" onclick="navTo('profile')"><span class="ic">◉</span><span>You</span></button>
+      </nav>
+    </section>
+
+    <!-- =================== EXPLORE =================== -->
+    <section id="s-explore" class="screen">
+      <div class="explore-scroll">
+        <div class="explore-header">Explore</div>
+        <div class="explore-sub">Stories by theme</div>
+
+        <!-- MYTHOLOGY -->
+        <div class="explore-section">
+          <div class="explore-section-head">
+            <span class="explore-genre-icon">🪔</span>
+            <span class="explore-genre-name">Mythology</span>
+            <span class="explore-genre-count">12 stories</span>
+          </div>
+          <div class="explore-cards">
+            <div class="explore-card" onclick="startStory()">
+              <img src="images/feedcard.png" alt="" onerror="this.style.display='none'">
+              <div class="explore-card-grad"></div>
+              <div class="explore-card-info">
+                <div class="explore-card-badge badge-myth">Mythology</div>
+                <div class="explore-card-title">Kashi Ka Khazana</div>
+                <div class="explore-card-eps">6 eps · 2.4k playing</div>
+              </div>
+            </div>
+            <div class="explore-card" onclick="alert('Coming soon!')">
+              <img src="images/ep3-s1.png" alt="" onerror="this.style.display='none'">
+              <div class="explore-card-grad"></div>
+              <div class="explore-card-info">
+                <div class="explore-card-badge badge-myth">Mythology</div>
+                <div class="explore-card-title">Hanuman ki Sabse Badi Pariksha</div>
+                <div class="explore-card-eps">6 eps · 1.1k playing</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ROMANCE -->
+        <div class="explore-section">
+          <div class="explore-section-head">
+            <span class="explore-genre-icon">💌</span>
+            <span class="explore-genre-name">Romance</span>
+            <span class="explore-genre-count">18 stories</span>
+          </div>
+          <div class="explore-cards">
+            <div class="explore-card" onclick="alert('Coming soon!')">
+              <img src="images/ep1-s2.png" alt="" onerror="this.style.display='none'">
+              <div class="explore-card-grad"></div>
+              <div class="explore-card-info">
+                <div class="explore-card-badge badge-romance">Romance</div>
+                <div class="explore-card-title">Pehli Baarish, Pehla Pyaar</div>
+                <div class="explore-card-eps">6 eps · 3.7k playing</div>
+              </div>
+            </div>
+            <div class="explore-card" onclick="alert('Coming soon!')">
+              <img src="images/ep2-s1.png" alt="" onerror="this.style.display='none'">
+              <div class="explore-card-grad"></div>
+              <div class="explore-card-info">
+                <div class="explore-card-badge badge-romance">Romance</div>
+                <div class="explore-card-title">Last Bench Wali Ladki</div>
+                <div class="explore-card-eps">6 eps · 2.1k playing</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- THRILLER -->
+        <div class="explore-section">
+          <div class="explore-section-head">
+            <span class="explore-genre-icon">🔪</span>
+            <span class="explore-genre-name">Thriller</span>
+            <span class="explore-genre-count">9 stories</span>
+          </div>
+          <div class="explore-cards">
+            <div class="explore-card" onclick="alert('Coming soon!')">
+              <img src="images/ep4-s1.png" alt="" onerror="this.style.display='none'">
+              <div class="explore-card-grad"></div>
+              <div class="explore-card-info">
+                <div class="explore-card-badge badge-thriller">Thriller</div>
+                <div class="explore-card-title">Raat Ko Phone Aaya</div>
+                <div class="explore-card-eps">6 eps · 1.8k playing</div>
+              </div>
+            </div>
+            <div class="explore-card" onclick="alert('Coming soon!')">
+              <img src="images/ep5-s1.png" alt="" onerror="this.style.display='none'">
+              <div class="explore-card-grad"></div>
+              <div class="explore-card-info">
+                <div class="explore-card-badge badge-thriller">Thriller</div>
+                <div class="explore-card-title">Apartment 404</div>
+                <div class="explore-card-eps">6 eps · 990 playing</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <nav class="bnav">
+        <button class="nav-item" data-tab="feed" onclick="navTo('feed')"><span class="ic">🏠</span><span>Feed</span></button>
+        <button class="nav-item" data-tab="explore" onclick="navTo('explore')"><span class="ic">🔍</span><span>Explore</span></button>
+        <button class="nav-item" data-tab="create" onclick="navTo('create')"><span class="ic">＋</span><span>Create</span></button>
+        <button class="nav-item active" data-tab="profile" onclick="navTo('profile')"><span class="ic">◉</span><span>You</span></button>
+      </nav>
+    </section>
+
+    <!-- =================== SAVE PHONE OVERLAY =================== -->
+    <div id="overlay-save">
+      <div class="ov-backdrop" onclick="closeSave()"></div>
+      <div class="ov-sheet">
+        <div class="drag-handle"></div>
+        <div class="ov-title">Save your stories<span class="dot">.</span></div>
+        <div class="ov-sub">Get notified when your Katha is ready. We'll only message you about your stories.</div>
+        <div class="ov-phone-row">
+          <div class="ov-cc">+91</div>
+          <input class="ov-phone" type="tel" inputmode="numeric" maxlength="10" placeholder="Phone number" />
+        </div>
+        <button class="btn-gold ov-otp" onclick="closeSave()">Get OTP</button>
+        <button class="ov-skip" onclick="closeSave()">Skip</button>
+      </div>
+    </div>
+
+    <audio id="bgm" loop preload="none">
+      <source src="audio/bg-mythology.mp3" type="audio/mpeg">
+    </audio>
+  </div>
+
+<script>
+/* =================================================================
+   KATHA — Interactive Story App
+================================================================= */
+
+/* ---------- STATE ---------- */
+const ST = {
+  ep: 0,
+  scene: 0,
+  choices: {},
+  audioOn: false,
+  branch: null   // 'A' or 'B' for episode 6
+};
+
+/* ---------- IMAGE HELPER ---------- */
+/* ---------- STORY DATA ---------- */
+const STORY = {
+  title: 'Kashi Ka Khazana',
+  genre: 'Mythology',
+  episodes: [
+    /* ===== EP 1 — Ek Sapna ===== */
+    {
+      title: 'Ek Sapna',
+      scenes: [
+        { img: 'images/ep1-s1.png',
+          hl: 'Vikram raat ke teen baje neend se uth gaya.',
+          body: '3:00 AM. The fan was off. The room felt heavier than usual, like someone had been standing at the foot of his bed and just left.' },
+        { img: 'images/ep1-s2.png',
+          hl: 'Takiye ke neeche kuch chamak raha tha.',
+          body: 'Cold. Round. Heavier than a rupee should ever be. He pulled it out from under his pillow and held it up to the streetlight.' },
+        { img: 'images/ep1-s3.png',
+          hl: 'Yeh sona hai. Asli sona.',
+          body: 'A gold coin. Ancient script along the rim. A face he half-recognized from a history textbook. And he had absolutely no memory of how it got there.' }
+      ],
+      choice: {
+        q: 'It is 3 AM. The coin is real. What does Vikram do first?',
+        A: { text: 'Call Maa', sub: 'She always knows the family stories.', img: 'images/ep1-s3.png' },
+        B: { text: 'Research it alone', sub: 'Don\'t wake anyone. Not yet.', img: 'images/ep1-s3.png' }
+      }
+    },
+
+    /* ===== EP 2 — Paheli ===== */
+    {
+      title: 'Paheli',
+      scenes: [
+        { img: 'images/ep2-s1.png',
+          hl: 'Maa ne ek purani kahaani sunaayi.',
+          body: 'A family legend, three generations old. A great-great-grandfather. A king. A debt that was never repaid. A piece of Kashi that travelled south with the family — and stayed hidden.' },
+        { img: 'images/ep2-s1.png',
+          hl: '"Jahan patthar pehli subah ko yaad rakhta hai."',
+          body: 'The clue was wrapped in a Sanskrit couplet. "Where stone remembers the first dawn." Vikram opened Google Maps. There was only one place in Bangalore that fit.' },
+        { img: 'images/ep2-s3.png',
+          hl: 'Lalbagh ke gate ke saamne, subah ki dhoop.',
+          body: 'The gates of Lalbagh Botanical Garden. The same gates kings, hippies and his own grandfather had walked through. He stood there with the coin in his pocket and a feeling that something was watching him back.' }
+      ],
+      choice: {
+        q: 'Lalbagh is a public park by day and a locked garden by night. When does Vikram go in?',
+        A: { text: 'Go in daytime', sub: 'Crowds. Safe. Easier to spot clues.', img: 'images/ep2-s3.png' },
+        B: { text: 'Go at night', sub: 'Climb the fence. Some things only show in the dark.', img: 'images/ep2-s3.png' }
+      }
+    },
+
+    /* ===== EP 3 — Patthar ===== */
+    {
+      title: 'Patthar',
+      scenes: [
+        { img: 'images/ep3-s1.png',
+          hl: 'Teen arab saal purana patthar. Aur woh saans le raha tha.',
+          body: 'The Lalbagh peninsular gneiss — three billion years old. Older than oxygen. Older than nearly everything alive. And tonight, it almost seemed to be breathing.' },
+        { img: 'images/ep3-s2.png',
+          hl: 'Patthar ke neeche, Sanskrit mein kuch likha tha.',
+          body: 'He swept the moss away from the base. The inscription was small, almost shy. A single line of Sanskrit. The same script as the coin.' },
+        { img: 'images/ep3-s3.png',
+          hl: 'Yeh akele nahi ho payega.',
+          body: 'He sat down on the rock and looked up at the stars. He needed help. Real help. Someone who would not laugh, would not call the police, would not call his mother.' }
+      ],
+      choice: {
+        q: 'Vikram knows one person who might believe him. Priya. Does he tell her?',
+        A: { text: 'Tell Priya', sub: 'She\'s a historian. And she trusts him.', img: 'images/ep3-s3.png' },
+        B: { text: 'Keep it secret', sub: 'Some treasures need only one hand.', img: 'images/ep3-s3.png' }
+      }
+    },
+
+    /* ===== EP 4 — Dalaal ===== */
+    {
+      title: 'Dalaal',
+      scenes: [
+        { img: 'images/ep4-s1.png',
+          hl: 'Shekhar ne darwaza khola — jaise Vikram ka intezaar kar raha ho.',
+          body: 'Chickpet. A tiny antique shop wedged between a saree wholesaler and a samosa stall. Shekhar looked at the coin once and said, "I knew you would come this week."' },
+        { img: 'images/ep4-s2.png',
+          hl: '"Khazana ek Shivalinga hai. Tipu ke mahal ke neeche."',
+          body: 'The treasure was not gold. It was a Shivalinga, hidden centuries ago beneath what was now Tipu Sultan\'s summer palace. The gold was just the seal.' },
+        { img: 'images/ep4-s3.png',
+          hl: 'Mahal ke peechhe ek puraani seedhi mil gayi.',
+          body: 'Behind the palace, in the corner the tourists never reach, the stone steps appeared exactly where Shekhar had said. Narrow. Damp. Going down.' }
+      ],
+      choice: {
+        q: 'Shekhar wants to come with him. Does Vikram trust the dealer?',
+        A: { text: 'Trust Shekhar', sub: 'He knew. He always knew.', img: 'images/ep4-s3.png' },
+        B: { text: 'Go alone', sub: 'This belongs to my family, not his.', img: 'images/ep4-s3.png' }
+      }
+    },
+
+    /* ===== EP 5 — Kamar ===== */
+    {
+      title: 'Kamar',
+      scenes: [
+        { img: 'images/ep5-s1.png',
+          hl: 'Diye sadiyon se jal rahe the. Bina tel ke.',
+          body: 'The underground chamber was small and perfectly dry. Lamps along the walls were still burning — and had been, somehow, for hundreds of years. The air smelled of sandalwood.' },
+        { img: 'images/ep5-s2.png',
+          hl: 'Beech mein, sone ke sikkon se ghira hua, ek Shivalinga.',
+          body: 'On a low stone pedestal, surrounded by a wide ring of gold coins, stood a small black Shivalinga. It was glowing — not brightly, but enough that he could see his own face reflected in it.' },
+        { img: 'images/ep5-s3.png',
+          hl: '"Beta, yeh tumhara hai. Lekin tumhari nahi hai."',
+          body: 'The voice was inside his head and outside it at the same time. The king from his dream. The final instruction. The choice was now.' }
+      ],
+      choice: {
+        q: 'The Shivalinga is yours by inheritance. But this is where it has lived for 800 years.',
+        A: { text: 'Take the idol', sub: 'It\'s my family\'s legacy. Bring it home.', img: 'images/ep5-s3.png' },
+        B: { text: 'Leave the idol', sub: 'Some things should stay where they were born.', img: 'images/ep5-s3.png' }
+      }
+    },
+
+    /* ===== EP 6 — Varasat (branching) ===== */
+    {
+      title: 'Varasat',
+      scenesA: [
+        { img: 'images/ep6-s1a.png',
+          hl: 'Vikram ne Shivalinga uthaya. Kamar sona ban gayi.',
+          body: 'The moment his fingers closed around it, every coin in the ring caught fire — not burning, just glowing. The whole chamber turned into one continuous sheet of gold light.' },
+        { img: 'images/ep6-s2.png',
+          hl: 'Raja ne sapne mein aakhri baar sar hilaya.',
+          body: 'That night he dreamt of the king once more. The king was old, but he was smiling. He nodded once, slowly, and the dream let him go.' },
+        { img: 'images/ep6-s2.png',
+          hl: 'Bangalore ki sadkon par Vikram alag tha.',
+          body: 'In the morning, traffic was still traffic. Auto-walas still overcharged. But something in his step had changed, and people in the metro kept glancing at him without knowing why.' }
+      ],
+      scenesB: [
+        { img: 'images/ep6-s1b.png',
+          hl: 'Vikram ne ek kadam peechhe liya. Kamar chup ho gayi.',
+          body: 'He stepped back. The coins dimmed. The lamps lowered themselves one by one, as if a hundred small breaths had been let go. The chamber sealed behind him without a sound.' },
+        { img: 'images/ep6-s2.png',
+          hl: 'Sapne mein raja ki aankh mein aansoo the.',
+          body: 'That night the king came one last time. He did not speak. He simply put a hand on Vikram\'s shoulder, and there were tears in his eyes — tears of a man finally allowed to rest.' },
+        { img: 'images/ep6-s2.png',
+          hl: 'Khaali haath. Lekin pehle se zyada bhara hua dil.',
+          body: 'He walked back to his apartment with empty hands and a chest that felt twice as full. The coin under his pillow was gone. He never told anyone. He did not need to.' }
+      ]
+    }
+  ]
+};
+
+/* ---------- CREDIT MAP ---------- */
+const CREDIT_MAP = [
+  { name: 'VIKRAM',     A: 'called his mother first',    B: 'trusted no one but himself' },
+  { name: 'THE STONE',  A: 'found in daylight',          B: 'spoke only in darkness' },
+  { name: 'PRIYA',      A: 'stood by him at the end',    B: 'never knew what he found' },
+  { name: 'SHEKHAR',    A: 'led the way underground',    B: 'was left behind' },
+  { name: 'THE IDOL',   A: 'came home',                  B: 'stayed where it belonged' }
+];
+
+/* ---------- SCREEN ROUTER ---------- */
+function showScreen(id) {
+  // cleanup generating timers if leaving
+  if (id !== 'generating') clearGenTimers();
+  document.querySelectorAll('.screen').forEach(s => {
+    s.classList.remove('active');
+    s.style.display = 'none';
+  });
+  const target = document.getElementById('s-' + id);
+  if (target) {
+    target.style.display = 'flex';
+    target.classList.add('active');
+  }
+}
+
+function navTo(tab) {
+  showScreen(tab);
+  // Update bnav active state across all nav bars
+  document.querySelectorAll('.bnav .nav-item').forEach(b => {
+    if (b.dataset.tab === tab) b.classList.add('active');
+    else b.classList.remove('active');
+  });
+}
+
+/* ---------- AUDIO ---------- */
+function tryStartAudio() {
+  if (ST.audioOn) return;
+  const bgm = document.getElementById('bgm');
+  if (!bgm) return;
+  try {
+    bgm.volume = 0.2;
+    const p = bgm.play();
+    if (p && p.catch) p.catch(() => { /* autoplay blocked, silent */ });
+    ST.audioOn = true;
+  } catch (e) { /* silent */ }
+}
+
+/* ---------- STORY FLOW ---------- */
+function startStory() {
+  ST.ep = 0;
+  ST.scene = 0;
+  ST.choices = {};
+  ST.branch = null;
+  tryStartAudio();
+  renderScene();
+  showScreen('player');
+}
+
+function currentSceneList() {
+  const ep = STORY.episodes[ST.ep];
+  if (!ep) return null;
+  if (ep.scenes) return ep.scenes;
+  if (ST.branch === 'A' && ep.scenesA) return ep.scenesA;
+  if (ep.scenesB) return ep.scenesB;
+  return ep.scenesB || ep.scenesA;
+}
+
+function renderScene() {
+  const scenes = currentSceneList();
+  if (!scenes) return;
+  const s = scenes[ST.scene];
+  if (!s) return;
+
+  // Ken Burns reset trick
+  const img = document.getElementById('scene-img');
+  if (img) {
+    img.style.animation = 'none';
+    void img.offsetHeight; // force reflow
+    img.src = s.img;
+    img.style.display = '';
+    img.style.animation = 'kenBurns 8s ease-out forwards';
+  }
+
+  document.getElementById('sub-hl').textContent = s.hl;
+  document.getElementById('sub-body').textContent = s.body;
+
+  renderEpDots();
+  renderSceneProgress(scenes.length);
+}
+
+function renderEpDots() {
+  const wrap = document.getElementById('ep-dots');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  for (let i = 0; i < STORY.episodes.length; i++) {
+    const d = document.createElement('div');
+    d.className = 'ep-dot';
+    if (i < ST.ep) d.classList.add('done');
+    if (i === ST.ep) d.classList.add('active');
+    wrap.appendChild(d);
+  }
+}
+
+function renderSceneProgress(total) {
+  const wrap = document.getElementById('scene-progress');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  for (let i = 0; i < total; i++) {
+    const seg = document.createElement('div');
+    seg.className = 'scene-seg';
+    if (i < ST.scene) seg.classList.add('done');
+    if (i === ST.scene) seg.classList.add('active');
+    wrap.appendChild(seg);
+  }
+}
+
+function advanceScene() {
+  tryStartAudio();
+  const ep = STORY.episodes[ST.ep];
+  const scenes = currentSceneList();
+  if (!scenes) return;
+
+  if (ST.scene < scenes.length - 1) {
+    ST.scene++;
+    renderScene();
+    return;
+  }
+
+  // End of scenes for this episode
+  if (ep.choice) {
+    renderChoice();
+    showScreen('choice');
+  } else {
+    // Final episode (ep 6) — no choice, go to end
+    renderEnd();
+    showScreen('end');
+  }
+}
+
+/* ---------- CHOICE ---------- */
+function renderChoice() {
+  const ep = STORY.episodes[ST.ep];
+  if (!ep || !ep.choice) return;
+  const c = ep.choice;
+  document.getElementById('choice-q').textContent = c.q;
+  document.getElementById('choice-a-text').textContent = c.A.text;
+  document.getElementById('choice-a-sub').textContent = c.A.sub;
+  document.getElementById('choice-b-text').textContent = c.B.text;
+  document.getElementById('choice-b-sub').textContent = c.B.sub;
+
+  const lastImg = ep.scenes[ep.scenes.length - 1].img;
+  document.getElementById('choice-a-bg').style.backgroundImage = "url('" + lastImg + "')";
+  document.getElementById('choice-b-bg').style.backgroundImage = "url('" + lastImg + "')";
+
+  const aH = document.getElementById('choice-a-half');
+  const bH = document.getElementById('choice-b-half');
+  aH.style.flex = '1';
+  bH.style.flex = '1';
+  aH.style.opacity = '1';
+  bH.style.opacity = '1';
+  aH.style.pointerEvents = '';
+  bH.style.pointerEvents = '';
+}
+
+function makeChoice(opt) {
+  ST.choices[ST.ep] = opt;
+  if (ST.ep === 4) ST.branch = opt; // ep 5 (index 4) decides ep 6 branch
+
+  const aH = document.getElementById('choice-a-half');
+  const bH = document.getElementById('choice-b-half');
+  aH.style.pointerEvents = 'none';
+  bH.style.pointerEvents = 'none';
+
+  if (opt === 'A') {
+    aH.style.flex = '1.4';
+    bH.style.flex = '1';
+    bH.style.opacity = '0.35';
+  } else {
+    bH.style.flex = '1.4';
+    aH.style.flex = '1';
+    aH.style.opacity = '0.35';
+  }
+
+  setTimeout(() => {
+    ST.ep++;
+    ST.scene = 0;
+    if (ST.ep >= STORY.episodes.length) {
+      renderEnd();
+      showScreen('end');
+    } else {
+      renderScene();
+      showScreen('player');
+    }
+  }, 700);
+}
+
+/* ---------- END / CREDITS ---------- */
+function renderEnd() {
+  const wrap = document.getElementById('end-credits');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  for (let i = 0; i < CREDIT_MAP.length; i++) {
+    const opt = ST.choices[i];
+    if (!opt) continue;
+    const c = CREDIT_MAP[i];
+    const block = document.createElement('div');
+    block.className = 'credit-block';
+    block.innerHTML =
+      '<div class="credit-name">' + c.name + '</div>' +
+      '<div class="credit-beat">' + (opt === 'A' ? c.A : c.B) + '</div>';
+    wrap.appendChild(block);
+  }
+}
+
+/* ---------- SHARE ---------- */
+function shareEnding() {
+  const text = buildShareText();
+  if (navigator.share) {
+    navigator.share({
+      title: 'My Katha ending',
+      text: text,
+      url: window.location.href
+    }).catch(() => {});
+  } else if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Copied to clipboard!');
+    }).catch(() => {
+      alert(text);
+    });
+  } else {
+    alert(text);
+  }
+}
+
+function buildShareText() {
+  let out = 'I just finished "Kashi Ka Khazana" on Katha.\n\n';
+  for (let i = 0; i < CREDIT_MAP.length; i++) {
+    const opt = ST.choices[i];
+    if (!opt) continue;
+    const c = CREDIT_MAP[i];
+    out += c.name + ' — ' + (opt === 'A' ? c.A : c.B) + '\n';
+  }
+  out += '\nWhat would your story be?';
+  return out;
+}
+
+/* ---------- CREATE ---------- */
+function updateCharCount() {
+  const ta = document.getElementById('story-prompt');
+  const cc = document.getElementById('char-count');
+  if (ta && cc) cc.textContent = ta.value.length;
+}
+
+function useIdea(btn) {
+  const ta = document.getElementById('story-prompt');
+  if (!ta) return;
+  ta.value = btn.textContent.trim();
+  updateCharCount();
+  ta.focus();
+}
+
+/* ---------- GENERATING ---------- */
+let genTimers = [];
+
+function startGenerating() {
+  showScreen('generating');
+  resetGenList();
+
+  // Save phone overlay after 3s
+  genTimers.push(setTimeout(() => {
+    openSave();
+  }, 3000));
+
+  // Step progression every 30s
+  genTimers.push(setInterval(() => {
+    advanceGenStep();
+  }, 30000));
+}
+
+function resetGenList() {
+  const list = document.getElementById('check-list');
+  if (!list) return;
+  const items = list.querySelectorAll('li');
+  items.forEach((li, i) => {
+    li.classList.remove('done', 'active');
+    const ck = li.querySelector('.ck');
+    if (i < 2) {
+      li.classList.add('done');
+      if (ck) ck.textContent = '✓';
+    } else if (i === 2) {
+      li.classList.add('active');
+      if (ck) ck.textContent = '·';
+    } else {
+      if (ck) ck.textContent = '';
+    }
+  });
+}
+
+function advanceGenStep() {
+  const list = document.getElementById('check-list');
+  if (!list) return;
+  const items = list.querySelectorAll('li');
+  let activeIdx = -1;
+  items.forEach((li, i) => { if (li.classList.contains('active')) activeIdx = i; });
+  if (activeIdx === -1 || activeIdx >= items.length - 1) return;
+  const cur = items[activeIdx];
+  cur.classList.remove('active');
+  cur.classList.add('done');
+  const ck = cur.querySelector('.ck');
+  if (ck) ck.textContent = '✓';
+  const next = items[activeIdx + 1];
+  if (next) {
+    next.classList.add('active');
+    const ck2 = next.querySelector('.ck');
+    if (ck2) ck2.textContent = '·';
+  }
+}
+
+function clearGenTimers() {
+  genTimers.forEach(t => { clearTimeout(t); clearInterval(t); });
+  genTimers = [];
+}
+
+/* ---------- SAVE OVERLAY ---------- */
+function openSave() {
+  document.getElementById('overlay-save').classList.add('active');
+}
+function closeSave() {
+  document.getElementById('overlay-save').classList.remove('active');
+}
+
+/* ---------- INIT ---------- */
+window.addEventListener('load', () => {
+  // Splash auto-advance after 2500ms
+  setTimeout(() => {
+    const splash = document.getElementById('s-splash');
+    if (splash && splash.classList.contains('active')) {
+      navTo('feed');
+    }
+  }, 2500);
+});
+
+// First user tap anywhere starts audio
+document.addEventListener('click', tryStartAudio, { once: true });
+</script>
+</body>
+</html>
