@@ -95,7 +95,8 @@
     border: none;
     font-family: inherit;
   }
-  .bnav .nav-item .ic { font-size: 18px; line-height: 1; }
+  .bnav .nav-item .ic { font-size: 16px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+  .bnav .nav-item .ic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .bnav .nav-item.active { color: #FFB020; }
   .bnav .nav-item:hover { color: #FFFFFF; }
   .bnav .nav-item.active:hover { color: #FFB020; }
@@ -260,7 +261,7 @@
     gap: 12px;
     padding-top: 36px;
   }
-  .feed-top-text { flex: 1; padding-left: 48px; }
+  .feed-top-text { flex: 1; }
   .feed-title {
     font-size: 22px;
     font-weight: 700;
@@ -1028,9 +1029,14 @@
     margin-bottom: 14px;
   }
   .explore-genre-icon {
-    font-size: 20px;
-    line-height: 1;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
   }
+  .explore-genre-icon.myth { background: #FFB020; box-shadow: 0 0 8px rgba(255,176,32,0.5); }
+  .explore-genre-icon.romance { background: #FF5078; box-shadow: 0 0 8px rgba(255,80,120,0.5); }
+  .explore-genre-icon.thriller { background: #50A0FF; box-shadow: 0 0 8px rgba(80,160,255,0.5); }
   .explore-genre-name {
     font-size: 15px;
     font-weight: 700;
@@ -1095,6 +1101,10 @@
     font-weight: 600;
     color: #FFFFFF;
     line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
   .explore-card-eps {
     font-size: 10px;
@@ -1306,10 +1316,10 @@
 
       </div><!-- .feed-reel -->
       <nav class="bnav">
-        <button class="nav-item active" data-tab="feed" onclick="navTo('feed')"><span class="ic">🏠</span><span>Feed</span></button>
-        <button class="nav-item" data-tab="explore" onclick="navTo('explore')"><span class="ic">🔍</span><span>Explore</span></button>
-        <button class="nav-item" data-tab="create" onclick="navTo('create')"><span class="ic">＋</span><span>Create</span></button>
-        <button class="nav-item" data-tab="profile" onclick="navTo('profile')"><span class="ic">◉</span><span>You</span></button>
+        <button class="nav-item active" data-tab="feed" onclick="navTo('feed')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></span><span>Feed</span></button>
+        <button class="nav-item" data-tab="explore" onclick="navTo('explore')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg></span><span>Explore</span></button>
+        <button class="nav-item" data-tab="create" onclick="navTo('create')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span><span>Create</span></button>
+        <button class="nav-item" data-tab="profile" onclick="navTo('profile')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span><span>You</span></button>
       </nav>
     </section>
 
@@ -1398,10 +1408,10 @@
         <button class="btn-gold create-btn" onclick="startGenerating()">Create Story →</button>
       </div>
       <nav class="bnav">
-        <button class="nav-item" data-tab="feed" onclick="navTo('feed')"><span class="ic">🏠</span><span>Feed</span></button>
-        <button class="nav-item" data-tab="explore" onclick="navTo('explore')"><span class="ic">🔍</span><span>Explore</span></button>
-        <button class="nav-item active" data-tab="create" onclick="navTo('create')"><span class="ic">＋</span><span>Create</span></button>
-        <button class="nav-item" data-tab="profile" onclick="navTo('profile')"><span class="ic">◉</span><span>You</span></button>
+        <button class="nav-item" data-tab="feed" onclick="navTo('feed')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></span><span>Feed</span></button>
+        <button class="nav-item" data-tab="explore" onclick="navTo('explore')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg></span><span>Explore</span></button>
+        <button class="nav-item active" data-tab="create" onclick="navTo('create')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span><span>Create</span></button>
+        <button class="nav-item" data-tab="profile" onclick="navTo('profile')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span><span>You</span></button>
       </nav>
     </section>
 
@@ -1481,10 +1491,10 @@
         </div>
       </div>
       <nav class="bnav">
-        <button class="nav-item" data-tab="feed" onclick="navTo('feed')"><span class="ic">🏠</span><span>Feed</span></button>
-        <button class="nav-item" data-tab="explore" onclick="navTo('explore')"><span class="ic">🔍</span><span>Explore</span></button>
-        <button class="nav-item" data-tab="create" onclick="navTo('create')"><span class="ic">＋</span><span>Create</span></button>
-        <button class="nav-item active" data-tab="profile" onclick="navTo('profile')"><span class="ic">◉</span><span>You</span></button>
+        <button class="nav-item" data-tab="feed" onclick="navTo('feed')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></span><span>Feed</span></button>
+        <button class="nav-item" data-tab="explore" onclick="navTo('explore')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg></span><span>Explore</span></button>
+        <button class="nav-item" data-tab="create" onclick="navTo('create')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span><span>Create</span></button>
+        <button class="nav-item active" data-tab="profile" onclick="navTo('profile')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span><span>You</span></button>
       </nav>
     </section>
 
@@ -1497,7 +1507,7 @@
         <!-- MYTHOLOGY -->
         <div class="explore-section">
           <div class="explore-section-head">
-            <span class="explore-genre-icon">🪔</span>
+            <span class="explore-genre-icon myth"></span>
             <span class="explore-genre-name">Mythology</span>
             <span class="explore-genre-count">12 stories</span>
           </div>
@@ -1526,7 +1536,7 @@
         <!-- ROMANCE -->
         <div class="explore-section">
           <div class="explore-section-head">
-            <span class="explore-genre-icon">💌</span>
+            <span class="explore-genre-icon romance"></span>
             <span class="explore-genre-name">Romance</span>
             <span class="explore-genre-count">18 stories</span>
           </div>
@@ -1555,7 +1565,7 @@
         <!-- THRILLER -->
         <div class="explore-section">
           <div class="explore-section-head">
-            <span class="explore-genre-icon">🔪</span>
+            <span class="explore-genre-icon thriller"></span>
             <span class="explore-genre-name">Thriller</span>
             <span class="explore-genre-count">9 stories</span>
           </div>
@@ -1583,10 +1593,10 @@
 
       </div>
       <nav class="bnav">
-        <button class="nav-item" data-tab="feed" onclick="navTo('feed')"><span class="ic">🏠</span><span>Feed</span></button>
-        <button class="nav-item" data-tab="explore" onclick="navTo('explore')"><span class="ic">🔍</span><span>Explore</span></button>
-        <button class="nav-item" data-tab="create" onclick="navTo('create')"><span class="ic">＋</span><span>Create</span></button>
-        <button class="nav-item active" data-tab="profile" onclick="navTo('profile')"><span class="ic">◉</span><span>You</span></button>
+        <button class="nav-item" data-tab="feed" onclick="navTo('feed')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></span><span>Feed</span></button>
+        <button class="nav-item" data-tab="explore" onclick="navTo('explore')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg></span><span>Explore</span></button>
+        <button class="nav-item" data-tab="create" onclick="navTo('create')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span><span>Create</span></button>
+        <button class="nav-item active" data-tab="profile" onclick="navTo('profile')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span><span>You</span></button>
       </nav>
     </section>
 
