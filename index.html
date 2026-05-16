@@ -2161,17 +2161,21 @@ function useIdea(btn) {
   ta.focus();
 }
 
-/* ---------- API KEY — configured here, not exposed to users ---------- */
-const _OAI_KEY = '';   // set your OpenAI key here; leave blank to use free Pollinations fallback
-function getApiKey() { return _OAI_KEY || sessionStorage.getItem('katha_oai_key') || ''; }
-function setApiKey(key) { sessionStorage.setItem('katha_oai_key', key.trim()); }
+/* ---------- OAI WRAPPERS — routed through Supabase Edge Function (key never in browser) ---------- */
+const _PROXY = 'https://vxpiktpczpnwbxzrlrfv.supabase.co/functions/v1/openai-proxy';
 
-/* ---------- OAI WRAPPERS ---------- */
+async function _proxyToken() {
+  if (!_supabase) return '';
+  const { data } = await _supabase.auth.getSession().catch(() => ({ data: {} }));
+  return data?.session?.access_token || '';
+}
+
 async function oaiChat(messages) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const token = await _proxyToken();
+  const res = await fetch(_PROXY, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getApiKey() },
-    body: JSON.stringify({ model: 'gpt-4o-mini', messages, temperature: 0.85, response_format: { type: 'json_object' } })
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify({ type: 'chat', model: 'gpt-4o-mini', messages })
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || 'API error ' + res.status); }
   const d = await res.json();
@@ -2193,15 +2197,15 @@ async function _preloadImg(url) {
 }
 
 async function oaiImage(prompt) {
-  const key = getApiKey();
-  if (key) {
-    // Try gpt-image-1-mini first, then gpt-image-1 as fallback
-    for (const model of ['gpt-image-1-mini', 'gpt-image-1']) {
+  const token = await _proxyToken();
+  if (token) {
+    // Try gpt-image-1 via proxy, fall back to Pollinations
+    for (const model of ['gpt-image-1']) {
       try {
-        const res = await fetch('https://api.openai.com/v1/images/generations', {
+        const res = await fetch(_PROXY, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-          body: JSON.stringify({ model, prompt, size: '1024x1024', n: 1 })
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ type: 'image', model, prompt, size: '1024x1024' })
         });
         if (res.ok) {
           const d = await res.json();
