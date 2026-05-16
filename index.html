@@ -1350,7 +1350,7 @@
       <div class="player-top">
         <button class="close-x" style="position:static;" onclick="navTo('feed')" aria-label="close">×</button>
         <div class="ep-dots" id="ep-dots"></div>
-        <div class="player-top-spacer"></div>
+        <button id="player-back-btn" class="close-x" style="position:static;font-size:20px;opacity:0.7;" onclick="goBackScene()" aria-label="back">‹</button>
       </div>
       <div class="scene-progress" id="scene-progress"></div>
       <div class="subtitle-stripe">
@@ -1362,7 +1362,10 @@
 
     <!-- =================== CHOICE =================== -->
     <section id="s-choice" class="screen">
-      <button class="close-x" onclick="navTo('feed')" aria-label="close">×</button>
+      <div style="position:absolute;top:env(safe-area-inset-top,16px);left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:16px 20px;z-index:10;">
+        <button class="close-x" style="position:static;font-size:20px;opacity:0.7;" onclick="goBackFromChoice()" aria-label="back">‹</button>
+        <button class="close-x" style="position:static;" onclick="navTo('feed')" aria-label="close">×</button>
+      </div>
       <div class="choice-question" id="choice-q">—</div>
       <div class="choice-half top" id="choice-a-half" onclick="makeChoice('A')">
         <div class="ch-bg top-fx" id="choice-a-bg"></div>
@@ -1467,12 +1470,12 @@
     <section id="s-profile" class="screen">
       <div class="profile-scroll">
         <div class="profile-head">
-          <div class="avatar">V</div>
+          <div class="avatar" id="profile-avatar">?</div>
           <div class="profile-info">
-            <div class="profile-name">Vikram</div>
-            <div class="profile-since">Member since May 2026</div>
+            <div class="profile-name" id="profile-display-name">—</div>
+            <div class="profile-since" id="profile-email">—</div>
           </div>
-          <button class="gear" aria-label="settings">⚙</button>
+          <button class="gear" aria-label="settings" onclick="openProfileSettings()">⚙</button>
         </div>
 
         <div class="stats-row">
@@ -1506,33 +1509,6 @@
             <div class="story-card-title">Kashi Ka Khazana</div>
           </div>
         </div>
-
-        <div class="section-head">Account</div>
-        <div class="settings-block">
-          <div class="settings-row">
-            <span class="settings-label">Signed in as</span>
-            <span class="settings-value" id="auth-status-text">Not signed in</span>
-          </div>
-          <div id="auth-loggedin-section" style="display:none;">
-            <button class="settings-edit-btn" style="color:#ff6b6b;" onclick="doSignOut()">Sign out</button>
-          </div>
-        </div>
-
-        <div class="section-head">Settings</div>
-        <div class="settings-block">
-          <div class="settings-row">
-            <span class="settings-label">OpenAI API Key</span>
-            <span class="settings-value" id="apikey-profile-status">Not set</span>
-          </div>
-          <div id="settings-key-wrap" style="display:none;">
-            <input id="apikey-profile-input" type="password" class="ov-phone" placeholder="sk-..." style="font-family:monospace;font-size:12px;letter-spacing:0.3px;width:100%;box-sizing:border-box;margin-bottom:8px;" />
-            <div style="display:flex;gap:8px;">
-              <button class="btn-gold" style="flex:1;height:40px;font-size:13px;" onclick="saveApiKeyFromProfile()">Save key</button>
-              <button class="btn-ghost" style="height:40px;padding:0 16px;font-size:13px;" onclick="clearApiKey()">Clear</button>
-            </div>
-          </div>
-          <button class="settings-edit-btn" onclick="toggleApiKeyInput()">Edit key</button>
-        </div>
       </div>
       <nav class="bnav">
         <button class="nav-item" data-tab="feed" onclick="navTo('feed')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></span><span>Feed</span></button>
@@ -1541,6 +1517,25 @@
         <button class="nav-item active" data-tab="profile" onclick="navTo('profile')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span><span>You</span></button>
       </nav>
     </section>
+
+    <!-- =================== PROFILE SETTINGS SHEET =================== -->
+    <div id="profile-settings-sheet" style="display:none;position:fixed;inset:0;z-index:500;">
+      <div class="ov-backdrop" onclick="closeProfileSettings()"></div>
+      <div class="ov-sheet">
+        <div class="drag-handle"></div>
+        <div class="ov-title">Settings<span class="dot">.</span></div>
+        <div style="margin-bottom:24px;">
+          <div style="font-size:12px;color:#A0A0B8;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.8px;">Account</div>
+          <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:14px;font-weight:600;" id="settings-name-display">—</div>
+              <div style="font-size:12px;color:#A0A0B8;margin-top:2px;" id="settings-email-display">—</div>
+            </div>
+          </div>
+        </div>
+        <button class="btn-ghost" style="width:100%;height:48px;font-size:15px;color:#ff6b6b;border-color:rgba(255,107,107,0.3);" onclick="doSignOut()">Sign out</button>
+      </div>
+    </div>
 
     <!-- =================== EXPLORE =================== -->
     <section id="s-explore" class="screen">
@@ -1688,20 +1683,7 @@
       <button id="name-submit-btn" onclick="submitName()" style="width:100%;background:#FFB020;color:#000;border:none;border-radius:12px;height:52px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;">Start reading →</button>
     </section>
 
-    <!-- =================== API KEY MODAL =================== -->
-    <div id="apikey-modal" style="display:none;position:fixed;inset:0;z-index:500;">
-      <div class="ov-backdrop" onclick="closeApiKeyModal()"></div>
-      <div class="ov-sheet">
-        <div class="drag-handle"></div>
-        <div class="ov-title">One-time setup<span class="dot">.</span></div>
-        <div class="ov-sub">Enter your OpenAI API key to generate stories with AI. Stored in this session only — never sent to our servers.</div>
-        <div class="ov-phone-row" style="flex-direction:column;gap:8px;">
-          <input id="apikey-input" class="ov-phone" type="password" placeholder="sk-..." style="width:100%;font-family:monospace;font-size:13px;letter-spacing:0.5px;box-sizing:border-box;" />
-        </div>
-        <button class="btn-gold ov-otp" style="margin-top:8px;" onclick="submitApiKey()">Start generating →</button>
-        <button class="ov-skip" onclick="closeApiKeyModal()">Cancel</button>
-      </div>
-    </div>
+    <!-- API key modal removed — key is configured server-side -->
 
     <!-- =================== SAVE PHONE OVERLAY =================== -->
     <div id="overlay-save">
@@ -1913,7 +1895,7 @@ function navTo(tab) {
     else b.classList.remove('active');
   });
   if (tab === 'feed') renderFeedGenerated();
-  if (tab === 'profile') { renderProfileMyStories(); renderProfileApiKey(); _updateAuthUI(); updateDbStatusUI(); }
+  if (tab === 'profile') { renderProfileMyStories(); renderProfileHead(); _updateAuthUI(); updateDbStatusUI(); }
 }
 
 function _getDisplayName() {
@@ -1972,8 +1954,34 @@ function renderScene() {
   document.getElementById('sub-hl').textContent = s.hl;
   document.getElementById('sub-body').textContent = s.body;
 
+  // Show back button only when there's somewhere to go back to
+  const backBtn = document.getElementById('player-back-btn');
+  if (backBtn) backBtn.style.visibility = (ST.scene === 0 && ST.ep === 0) ? 'hidden' : 'visible';
+
   renderEpDots();
   renderSceneProgress(scenes.length);
+}
+
+function goBackScene() {
+  if (ST.scene > 0) {
+    ST.scene--;
+    renderScene();
+  } else if (ST.ep > 0) {
+    ST.ep--;
+    ST.branch = null;
+    const scenes = currentSceneList();
+    ST.scene = scenes ? scenes.length - 1 : 0;
+    renderScene();
+    showScreen('player');
+  }
+}
+
+function goBackFromChoice() {
+  // Go back to last scene of the current episode
+  const scenes = currentSceneList();
+  ST.scene = scenes ? scenes.length - 1 : 0;
+  renderScene();
+  showScreen('player');
 }
 
 function renderEpDots() {
@@ -2147,8 +2155,9 @@ function useIdea(btn) {
   ta.focus();
 }
 
-/* ---------- API KEY ---------- */
-function getApiKey() { return sessionStorage.getItem('katha_oai_key') || ''; }
+/* ---------- API KEY — configured here, not exposed to users ---------- */
+const _OAI_KEY = '';   // set your OpenAI key here; leave blank to use free Pollinations fallback
+function getApiKey() { return _OAI_KEY || sessionStorage.getItem('katha_oai_key') || ''; }
 function setApiKey(key) { sessionStorage.setItem('katha_oai_key', key.trim()); }
 
 /* ---------- OAI WRAPPERS ---------- */
@@ -2590,43 +2599,26 @@ function renderProfileMyStories() {
   if (statEl) statEl.textContent = stories.length;
 }
 
-function renderProfileApiKey() {
-  const el = document.getElementById('apikey-profile-status');
-  if (!el) return;
-  const key = getApiKey();
-  el.textContent = key ? '✓ Set (' + key.slice(0, 8) + '...)' : 'Not set';
-  el.style.color = key ? '#4CAF50' : '#A0A0B8';
-}
 
 function startGenerating() {
   const prompt = (document.getElementById('story-prompt')?.value || '').trim();
   if (!prompt) { alert('Please describe your story idea first!'); return; }
-
-  const key = getApiKey();
-  if (!key) { showApiKeyModal(prompt); return; }
-
   showScreen('generating');
   runPipeline(prompt);
 }
 
-/* ---------- API KEY MODAL ---------- */
-let _pendingPrompt = '';
-
-function showApiKeyModal(prompt) {
-  _pendingPrompt = prompt;
-  document.getElementById('apikey-modal').style.display = 'block';
+/* ---------- PROFILE SETTINGS ---------- */
+function openProfileSettings() {
+  const name = _getDisplayName();
+  const email = _currentUser?.email || '';
+  const el = document.getElementById('settings-name-display');
+  const em = document.getElementById('settings-email-display');
+  if (el) el.textContent = name || 'Katha user';
+  if (em) em.textContent = email;
+  document.getElementById('profile-settings-sheet').style.display = 'block';
 }
-function closeApiKeyModal() {
-  document.getElementById('apikey-modal').style.display = 'none';
-}
-function submitApiKey() {
-  const input = document.getElementById('apikey-input');
-  const key = (input?.value || '').trim();
-  if (!key.startsWith('sk-')) { alert('Please enter a valid OpenAI API key (starts with sk-)'); return; }
-  setApiKey(key);
-  closeApiKeyModal();
-  showScreen('generating');
-  runPipeline(_pendingPrompt);
+function closeProfileSettings() {
+  document.getElementById('profile-settings-sheet').style.display = 'none';
 }
 
 /* ---------- SUPABASE / AUTH ---------- */
@@ -2644,6 +2636,7 @@ function initSupabase() {
       const wasLoggedOut = !_currentUser;
       _currentUser = session?.user || null;
       _updateAuthUI();
+      renderProfileHead();
       if (_currentUser) {
         await _syncFromDb();
         if (wasLoggedOut || event === 'SIGNED_IN') {
@@ -2796,31 +2789,17 @@ async function submitName() {
 function openLoginModal() { navTo('onboard'); }
 function closeLoginModal() { }
 
-/* ---------- API KEY PROFILE ---------- */
-function toggleApiKeyInput() {
-  const wrap = document.getElementById('settings-key-wrap');
-  if (!wrap) return;
-  const visible = wrap.style.display !== 'none';
-  wrap.style.display = visible ? 'none' : 'block';
-  if (!visible) {
-    const inp = document.getElementById('apikey-profile-input');
-    if (inp) { inp.value = getApiKey(); inp.focus(); }
-  }
-}
-function saveApiKeyFromProfile() {
-  const inp = document.getElementById('apikey-profile-input');
-  const key = (inp?.value || '').trim();
-  if (!key.startsWith('sk-')) { alert('Key must start with sk-'); return; }
-  setApiKey(key);
-  document.getElementById('settings-key-wrap').style.display = 'none';
-  renderProfileApiKey();
-}
-function clearApiKey() {
-  sessionStorage.removeItem('katha_oai_key');
-  const inp = document.getElementById('apikey-profile-input');
-  if (inp) inp.value = '';
-  document.getElementById('settings-key-wrap').style.display = 'none';
-  renderProfileApiKey();
+/* ---------- PROFILE NAME / AVATAR ---------- */
+function renderProfileHead() {
+  const name = _getDisplayName() || 'Katha User';
+  const email = _currentUser?.email || '';
+  const initial = name.charAt(0).toUpperCase();
+  const nameEl = document.getElementById('profile-display-name');
+  const emailEl = document.getElementById('profile-email');
+  const avatarEl = document.getElementById('profile-avatar');
+  if (nameEl) nameEl.textContent = name;
+  if (emailEl) emailEl.textContent = email;
+  if (avatarEl) avatarEl.textContent = initial;
 }
 
 /* ---------- SAVE OVERLAY ---------- */
@@ -2836,7 +2815,7 @@ window.addEventListener('load', async () => {
   initSupabase();
   renderFeedGenerated();
   renderProfileMyStories();
-  renderProfileApiKey();
+  renderProfileHead();
   _updateAuthUI();
 
   // Run session check and minimum splash in parallel.
