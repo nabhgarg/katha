@@ -2839,12 +2839,19 @@ window.addEventListener('load', async () => {
   renderProfileApiKey();
   _updateAuthUI();
 
-  // Run session check and minimum splash in parallel — whichever takes longer wins
+  // Run session check and minimum splash in parallel.
+  // getSession races against a 3s timeout so a slow network never freezes the splash.
+  const _noSession = { data: { session: null } };
+  const _sessionCheck = _supabase
+    ? Promise.race([
+        _supabase.auth.getSession().catch(() => _noSession),
+        new Promise(r => setTimeout(() => r(_noSession), 3000))
+      ])
+    : Promise.resolve(_noSession);
+
   const [, { data: { session } }] = await Promise.all([
     new Promise(r => setTimeout(r, 1000)),
-    _supabase
-      ? _supabase.auth.getSession().catch(() => ({ data: { session: null } }))
-      : Promise.resolve({ data: { session: null } })
+    _sessionCheck
   ]);
 
   if (session?.user) {
