@@ -993,6 +993,57 @@
   .empty-card:hover { background: rgba(255,176,32,0.08); border-color: rgba(255,176,32,0.55); }
   .empty-card .plus { font-size: 28px; font-weight: 300; line-height: 1; }
   .empty-card .lbl { font-size: 12px; font-weight: 600; letter-spacing: 0.5px; }
+  /* Generating placeholder card */
+  @keyframes shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+  .gen-placeholder-card {
+    aspect-ratio: 3 / 4;
+    border-radius: 14px;
+    overflow: hidden;
+    background: linear-gradient(90deg, #12121C 25%, #1e1e2e 50%, #12121C 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+    border: 1px solid rgba(255,255,255,0.06);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 12px;
+  }
+  .gen-placeholder-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,176,32,0.7);
+    letter-spacing: 0.4px;
+    text-align: center;
+    background: rgba(0,0,0,0.4);
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+  /* Toast notification */
+  #katha-toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(120px);
+    background: #1e1e2e;
+    border: 1px solid rgba(255,176,32,0.4);
+    border-radius: 14px;
+    padding: 13px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #FFB020;
+    z-index: 9000;
+    cursor: pointer;
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    white-space: nowrap;
+    max-width: calc(100vw - 48px);
+  }
+  #katha-toast.show { transform: translateX(-50%) translateY(0); }
   .story-card-img {
     position: absolute;
     inset: 0;
@@ -1437,6 +1488,9 @@
         <button class="nav-item active" data-tab="profile" onclick="navTo('profile')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span><span>You</span></button>
       </nav>
     </section>
+
+    <!-- Toast -->
+    <div id="katha-toast" role="alert" aria-live="polite"></div>
 
     <!-- =================== PROFILE SETTINGS SHEET =================== -->
     <div id="profile-settings-sheet" style="display:none;position:fixed;inset:0;z-index:500;">
@@ -2369,6 +2423,7 @@ function assembleCredits(arc, bible) {
 async function runPipeline(userPrompt) {
   initGenList();
   document.getElementById('gen-error').style.display = 'none';
+  showGeneratingCard();
 
   try {
     // Stage 1: Bible (gpt-4o)
@@ -2452,10 +2507,21 @@ async function runPipeline(userPrompt) {
     setGenEta('Your Katha is ready!');
     setGenBadge('✓ ' + CURRENT_STORY.title);
 
-    setTimeout(() => { startStory(); }, 1800);
+    // Replace placeholder card with real story card in My Stories
+    clearGeneratingCard();
+    renderProfileMyStories();
+
+    const onGeneratingScreen = document.getElementById('s-generating')?.classList.contains('active');
+    if (onGeneratingScreen) {
+      setTimeout(() => { startStory(); }, 1800);
+    } else {
+      showToast('✨ ' + CURRENT_STORY.title + ' is ready! Tap to read.', () => { startStory(); });
+    }
 
   } catch (err) {
     console.error('Pipeline error:', err);
+    clearGeneratingCard();
+    renderProfileMyStories();
     showGenError('Something went wrong: ' + (err.message || 'unknown error') + '. Check your API key and try again.');
   }
 }
@@ -2465,6 +2531,58 @@ let genTimers = [];
 function clearGenTimers() {
   genTimers.forEach(t => { clearTimeout(t); clearInterval(t); });
   genTimers = [];
+}
+
+/* ---------- TOAST ---------- */
+let _toastTimer = null;
+let _toastOnTap = null;
+function showToast(msg, onTap) {
+  const el = document.getElementById('katha-toast');
+  if (!el) return;
+  if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
+  _toastOnTap = onTap || null;
+  el.textContent = msg;
+  el.onclick = () => { hideToast(); if (_toastOnTap) _toastOnTap(); };
+  // Force reflow so transition fires
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  _toastTimer = setTimeout(hideToast, 5000);
+}
+function hideToast() {
+  const el = document.getElementById('katha-toast');
+  if (el) el.classList.remove('show');
+  if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
+}
+
+/* ---------- GEN PLACEHOLDER CARD ---------- */
+let _genPlaceholderActive = false;
+function showGeneratingCard() {
+  _genPlaceholderActive = true;
+  const grid = document.getElementById('my-stories-grid');
+  if (!grid) return;
+  // Remove any stale placeholder
+  const old = grid.querySelector('.gen-placeholder-card');
+  if (old) old.remove();
+  const card = document.createElement('div');
+  card.className = 'gen-placeholder-card';
+  card.id = 'gen-ph-card';
+  card.innerHTML = '<div class="gen-placeholder-label">Generating…</div>';
+  // Insert before the create button
+  const createBtn = grid.querySelector('.empty-card');
+  if (createBtn) grid.insertBefore(card, createBtn);
+  else grid.appendChild(card);
+  // Update count stat
+  const statEl = document.getElementById('stat-created');
+  if (statEl) {
+    const cur = parseInt(statEl.textContent, 10) || 0;
+    statEl.textContent = cur + 1;
+  }
+}
+function clearGeneratingCard() {
+  _genPlaceholderActive = false;
+  const card = document.getElementById('gen-ph-card');
+  if (card) card.remove();
 }
 
 /* ---------- STORY STORAGE ---------- */
