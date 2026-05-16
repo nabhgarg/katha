@@ -2718,6 +2718,22 @@ async function _syncFromDb() {
   } catch(e) { console.warn('Sync failed:', e); }
 }
 
+function resetOnboardScreen() {
+  const form = document.getElementById('onboard-form');
+  const otp  = document.getElementById('onboard-otp');
+  const btn  = document.getElementById('onboard-submit-btn');
+  const vbtn = document.getElementById('onboard-verify-btn');
+  const inp  = document.getElementById('onboard-email');
+  const otpInp = document.getElementById('onboard-otp-input');
+  if (form)  form.style.display = 'block';
+  if (otp)   otp.style.display  = 'none';
+  if (btn)   { btn.disabled = false; btn.textContent = 'Send code →'; }
+  if (vbtn)  { vbtn.disabled = false; vbtn.textContent = 'Verify →'; }
+  if (inp)   inp.value = '';
+  if (otpInp) otpInp.value = '';
+  _pendingEmail = '';
+}
+
 async function doSignOut() {
   closeProfileSettings();
   try { if (_supabase) await _supabase.auth.signOut(); } catch(e) { /* ignore */ }
@@ -2725,6 +2741,7 @@ async function doSignOut() {
   localStorage.removeItem('katha_display_name');
   localStorage.removeItem('katha_stories_v1');
   _updateAuthUI();
+  resetOnboardScreen();
   navTo('onboard');
 }
 
