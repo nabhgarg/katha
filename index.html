@@ -2774,6 +2774,7 @@ async function _syncFromDb() {
 
 async function doSignOut() {
   if (!_supabase) return;
+  closeProfileSettings();
   await _supabase.auth.signOut();
   _currentUser = null;
   localStorage.removeItem('katha_display_name');
