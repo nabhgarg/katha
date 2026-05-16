@@ -2512,7 +2512,7 @@ const GENRE_COLORS = {
 function renderFeedGenerated() {
   const reel = document.getElementById('feed-reel');
   if (!reel) return;
-  reel.querySelectorAll('.feed-card.generated').forEach(c => c.remove());
+  reel.querySelectorAll('.feed-card.generated:not(.public)').forEach(c => c.remove());
   loadSavedStories().forEach(entry => {
     const s = entry.story;
     const gc = GENRE_COLORS[s.genre] || GENRE_COLORS.MYTHOLOGY;
@@ -2711,11 +2711,16 @@ async function _loadStoriesFromDb() {
 async function _syncFromDb() {
   const dbStories = await _loadStoriesFromDb();
   if (!dbStories) return;
-  try {
-    localStorage.setItem(STORIES_KEY, JSON.stringify(dbStories.slice(0, 5)));
-    renderFeedGenerated();
-    renderProfileMyStories();
-  } catch(e) { console.warn('Sync failed:', e); }
+  for (let maxKeep = 5; maxKeep >= 0; maxKeep--) {
+    try {
+      localStorage.setItem(STORIES_KEY, JSON.stringify(dbStories.slice(0, maxKeep)));
+      break;
+    } catch(e) {
+      if (maxKeep === 0) console.warn('_syncFromDb: localStorage full, skipping local cache');
+    }
+  }
+  renderFeedGenerated();
+  renderProfileMyStories();
 }
 
 function resetOnboardScreen() {
