@@ -422,21 +422,21 @@
     gap: 8px;
   }
   .sub-hl {
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 600;
     color: #FFFFFF;
-    line-height: 1.35;
-    border-left: 3px solid #FFB020;
-    background: rgba(255,176,32,0.08);
-    padding: 8px 10px 8px 12px;
-    border-radius: 0 6px 6px 0;
-    letter-spacing: 0.1px;
+    line-height: 1.45;
+    background: rgba(255,255,255,0.08);
+    padding: 10px 12px;
+    border-radius: 8px;
+    letter-spacing: 0.05px;
+    white-space: pre-line;
   }
   .sub-body {
-    font-size: 14px;
+    font-size: 16px;
     color: #A0A0B8;
     font-weight: 400;
-    line-height: 1.5;
+    line-height: 1.55;
     padding: 0 2px;
   }
   .sub-hint {
@@ -1771,10 +1771,12 @@ function startStory() {
 function currentSceneList() {
   const ep = CURRENT_STORY.episodes[ST.ep];
   if (!ep) return null;
-  if (ep.scenes) return ep.scenes;
-  if (ST.branch === 'A' && ep.scenesA) return ep.scenesA;
+  if (ep.scenes) return ep.scenes; // ep1 single path
+  // For eps 2+: use the choice made in the previous episode
+  const prevChoice = ST.choices[ST.ep - 1];
+  if (prevChoice === 'A' && ep.scenesA) return ep.scenesA;
   if (ep.scenesB) return ep.scenesB;
-  return ep.scenesB || ep.scenesA;
+  return ep.scenesA || null;
 }
 
 function renderScene() {
@@ -1783,18 +1785,33 @@ function renderScene() {
   const s = scenes[ST.scene];
   if (!s) return;
 
-  // Ken Burns reset trick
+  // Ken Burns reset trick. Fall back to story cover_img when no per-scene image.
   const img = document.getElementById('scene-img');
   if (img) {
     img.style.animation = 'none';
     void img.offsetHeight;
-    if (s.img) { img.src = s.img; img.style.display = ''; }
-    else { img.src = ''; img.style.display = 'none'; }
+    const displaySrc = s.img || (CURRENT_STORY && CURRENT_STORY.cover_img) || '';
+    if (displaySrc) {
+      img.src = displaySrc;
+      img.style.display = '';
+      // Cover image used as ambient background: freeze animation, apply blur + extra dim
+      img.style.filter = s.img ? '' : 'blur(4px) brightness(0.55)';
+      img.style.transform = s.img ? '' : 'scale(1.08)';
+    } else {
+      img.src = '';
+      img.style.display = 'none';
+      img.style.filter = '';
+      img.style.transform = '';
+    }
     img.style.animation = 'kenBurns 8s ease-out forwards';
   }
 
-  document.getElementById('sub-hl').textContent = s.hl;
-  document.getElementById('sub-body').textContent = s.body;
+  // New format: narrator + dialogues[]. Old format: hl + body (backward compat)
+  const dialogueText = (s.dialogues && s.dialogues.length)
+    ? s.dialogues.join('\n')
+    : (s.hl || '');
+  document.getElementById('sub-hl').textContent = dialogueText;
+  document.getElementById('sub-body').textContent = s.narrator || s.body || '';
 
   // Show back button only when there's somewhere to go back to
   const backBtn = document.getElementById('player-back-btn');
@@ -1886,9 +1903,9 @@ function renderChoice() {
   document.getElementById('choice-b-text').textContent = c.B.text;
   document.getElementById('choice-b-sub').textContent = c.B.sub;
 
-  const lastImg = ep.scenes[ep.scenes.length - 1].img;
-  document.getElementById('choice-a-bg').style.backgroundImage = "url('" + lastImg + "')";
-  document.getElementById('choice-b-bg').style.backgroundImage = "url('" + lastImg + "')";
+  const coverImg = CURRENT_STORY.cover_img || '';
+  document.getElementById('choice-a-bg').style.backgroundImage = coverImg ? "url('" + coverImg + "')" : '';
+  document.getElementById('choice-b-bg').style.backgroundImage = coverImg ? "url('" + coverImg + "')" : '';
 
   const aH = document.getElementById('choice-a-half');
   const bH = document.getElementById('choice-b-half');
@@ -1902,7 +1919,6 @@ function renderChoice() {
 
 function makeChoice(opt) {
   ST.choices[ST.ep] = opt;
-  if (ST.ep === 4) ST.branch = opt; // ep 5 (index 4) decides ep 6 branch
 
   const aH = document.getElementById('choice-a-half');
   const bH = document.getElementById('choice-b-half');
@@ -2000,22 +2016,31 @@ function useIdea(btn) {
 /* ---------- OAI WRAPPERS — routed through Supabase Edge Function (key never in browser) ---------- */
 const _PROXY = 'https://vxpiktpczpnwbxzrlrfv.supabase.co/functions/v1/openai-proxy';
 
+// Edge Function already sets response_format:{type:'json_object'} so fences are rare,
+// but strip them defensively in case of model updates or fallback paths.
+function _safeJsonParse(raw) {
+  const s = (raw || '').trim();
+  const fenced = s.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
+  return JSON.parse(fenced ? fenced[1].trim() : s);
+}
+
 async function _proxyToken() {
   if (!_supabase) return '';
   const { data } = await _supabase.auth.getSession().catch(() => ({ data: {} }));
   return data?.session?.access_token || '';
 }
 
-async function oaiChat(messages) {
+async function oaiChat(messages, model = 'gpt-4o-mini') {
   const token = await _proxyToken();
   const res = await fetch(_PROXY, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-    body: JSON.stringify({ type: 'chat', model: 'gpt-4o-mini', messages })
+    body: JSON.stringify({ type: 'chat', model, messages })
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || 'API error ' + res.status); }
   const d = await res.json();
-  return JSON.parse(d.choices[0].message.content);
+  if (!d.choices?.[0]?.message?.content) throw new Error('Empty response from model');
+  return _safeJsonParse(d.choices[0].message.content);
 }
 
 function _pollinationsUrl(prompt) {
@@ -2075,18 +2100,18 @@ const IMG_STYLE = {
 /* ---------- PIPELINE STAGE FUNCTIONS ---------- */
 async function stageBible(userPrompt) {
   return oaiChat([
-    { role: 'system', content: `You are a story development editor for Indian vernacular fiction.
+    { role: 'system', content: `Tu ek Indian interactive fiction ka story editor hai.
 Genre options:
-ROMANCE: Class tension, longing, one central obstacle. Modern India setting. Emotional: bittersweet, slow burn.
-THRILLER: One impossible thing that is real. Paranoia escalates each episode. Twist in ep5. Emotional: dread, suspense.
-MYTHOLOGY: Ancient or divine force disrupts a modern person's life. Protagonist is ordinary and reluctant. Emotional: epic, wonder.
-Output JSON only.` },
+ROMANCE: Class tension, longing, ek central obstacle. Modern India setting. Emotional: bittersweet, slow burn.
+THRILLER: Ek impossible cheez jo real hai. Paranoia har episode mein badhti hai. Ep5 mein twist. Emotional: dread, suspense.
+MYTHOLOGY: Ancient ya divine force ek ordinary Indian ki life disrupt karta hai. Protagonist reluctant hero hai. Emotional: epic, wonder.
+Output sirf JSON.` },
     { role: 'user', content: `Story idea: "${userPrompt}"
 
 Output this exact JSON:
 {
   "genre": "ROMANCE or THRILLER or MYTHOLOGY",
-  "title": "2-4 word story title, can be Hinglish",
+  "title": "2-4 word story title, Hinglish preferred",
   "city": "one Indian city name",
   "logline": "one sentence: who is the protagonist, what disrupts their world, what must be resolved",
   "story_rules": [
@@ -2099,92 +2124,146 @@ Output this exact JSON:
     "age": 24,
     "wants": "what they consciously want",
     "hides": "what they don't admit to anyone",
-    "speech_tic": "one phrase describing their spoken style e.g. uses matlab as filler when nervous"
+    "speech_tic": "one phrase describing their spoken Hinglish style e.g. matlab ka overuse jab nervous ho"
   },
   "characters": [
     {"name": "first name", "role": "love_interest or antagonist or ally or unknown", "one_line": "who they are in one sentence"}
-  ]
+  ],
+  "cover_prompt": "visual description for story cover art — mood, setting, genre atmosphere, key symbol or motif. 40-60 words. No faces. No text."
 }` }
-  ]);
+  ], 'gpt-4o');
 }
 
 async function stageArc(bible) {
   const rules = bible.story_rules.join('\n- ');
   const chars = (bible.characters || []).map(c => `${c.name} (${c.role}): ${c.one_line}`).join('\n');
   return oaiChat([
-    { role: 'system', content: `You are planning a 6-episode interactive story for Indian mobile audiences.
-Story rules (never violate):
+    { role: 'system', content: `Tu 6-episode interactive story plan kar raha hai Indian mobile audience ke liye.
+Story rules (kabhi violate mat karna):
 - ${rules}
 Protagonist: ${bible.protagonist.name}, age ${bible.protagonist.age}. Wants: ${bible.protagonist.wants}. Hides: ${bible.protagonist.hides}.
 Other characters: ${chars}
 Logline: ${bible.logline}
-Output JSON only.` },
-    { role: 'user', content: `Plan all 6 episodes. Design ep1 cliffhanger LAST after knowing the full story shape — it must be the strongest.
+Output sirf JSON.` },
+    { role: 'user', content: `Plan all 6 episodes. Ep1 ka cliffhanger LAST design karo — sabse strong hona chahiye.
 
 Episode roles:
-Ep1 HOOK: Open mid-action, no backstory. By scene 3: revelation that recontextualizes everything. Cliffhanger = a BURNING QUESTION.
-Ep2 ESCALATION: Ep1 problem is bigger than it looked. Choice consequence is visible.
-Ep3 COMPLICATION: New info changes everything. Protagonist makes reasonable but wrong decision.
-Ep4 ALL IS LOST: Lowest point. Something valued is gone. Choice feels like loss either way.
-Ep5 THE TURN: Most meaningful fork. One option safe but hollow, other risky but true. User must feel genuine uncertainty.
-Ep6 RESOLUTION: No choice. 3 scenes close the story. Must echo an image or line from ep1.
+Ep1 HOOK: Mid-action se shuru, koi backstory nahi. Scene 3 mein: ek revelation jo sab kuch recontextualize kare. Cliffhanger = BURNING QUESTION.
+Ep2 ESCALATION: Ep1 problem thought se bada hai. Choice ka consequence visible hai.
+Ep3 COMPLICATION: New info sab badal deta hai. Protagonist reasonable but wrong decision leta hai.
+Ep4 ALL IS LOST: Lowest point. Kuch valued chala gaya. Dono choices feel like loss.
+Ep5 THE TURN: Sabse meaningful fork. Ek option safe but hollow, doosra risky but true. User genuinely uncertain feel kare.
+Ep6 RESOLUTION: No choice. 3 scenes close the story. Ep1 ki ek image ya line echo honi chahiye.
+
+IMPORTANT: Eps 2-6 ke liye scene_jobs_a (agar player ne pichle ep mein choice A li) aur scene_jobs_b (agar choice B li) ALAG hone chahiye. Consequences clearly different hone chahiye.
 
 Output JSON:
 {
   "episodes": [
     {
       "number": 1,
-      "title": "2-3 words, can be Hindi",
-      "scene_jobs": ["scene 1: what happens, one sentence", "scene 2: what happens", "scene 3: revelation that recontextualizes everything"],
-      "cliffhanger": "exact text shown to user — must be a question or impossible juxtaposition, never just an event",
-      "choice_q": "question shown to user",
+      "title": "2-3 words, Hinglish preferred",
+      "scene_jobs": ["scene 1: kya hota hai, ek sentence", "scene 2: kya hota hai", "scene 3: revelation jo sab recontextualize kare"],
+      "cliffhanger": "exact text shown to user — must be a question or impossible juxtaposition",
+      "choice_q": "question shown to user, Hinglish",
       "choice_a": {"label": "3-5 words", "sub": "cost or implication, one sentence"},
       "choice_b": {"label": "3-5 words", "sub": "cost or implication, one sentence"}
     },
-    { "number": 2, "title": "...", "scene_jobs": ["...","...","..."], "cliffhanger": "...", "choice_q": "...", "choice_a": {"label":"...","sub":"..."}, "choice_b": {"label":"...","sub":"..."} },
-    { "number": 3, "title": "...", "scene_jobs": ["...","...","..."], "cliffhanger": "...", "choice_q": "...", "choice_a": {"label":"...","sub":"..."}, "choice_b": {"label":"...","sub":"..."} },
-    { "number": 4, "title": "...", "scene_jobs": ["...","...","..."], "cliffhanger": "...", "choice_q": "...", "choice_a": {"label":"...","sub":"..."}, "choice_b": {"label":"...","sub":"..."} },
-    { "number": 5, "title": "...", "scene_jobs": ["...","...","..."], "cliffhanger": "...", "choice_q": "...", "choice_a": {"label":"...","sub":"..."}, "choice_b": {"label":"...","sub":"..."} },
-    { "number": 6, "title": "...", "scene_jobs": ["scene 1","scene 2","scene 3 — must echo ep1"] }
+    {
+      "number": 2,
+      "title": "...",
+      "scene_jobs_a": ["ep1 choice A consequence dikhao", "escalate karo", "ep2 revelation"],
+      "scene_jobs_b": ["ep1 choice B consequence dikhao", "different escalation", "ep2 revelation"],
+      "cliffhanger": "...",
+      "choice_q": "...",
+      "choice_a": {"label":"...","sub":"..."},
+      "choice_b": {"label":"...","sub":"..."}
+    },
+    {"number": 3, "title": "...", "scene_jobs_a": ["...","...","..."], "scene_jobs_b": ["...","...","..."], "cliffhanger": "...", "choice_q": "...", "choice_a": {"label":"...","sub":"..."}, "choice_b": {"label":"...","sub":"..."}},
+    {"number": 4, "title": "...", "scene_jobs_a": ["...","...","..."], "scene_jobs_b": ["...","...","..."], "cliffhanger": "...", "choice_q": "...", "choice_a": {"label":"...","sub":"..."}, "choice_b": {"label":"...","sub":"..."}},
+    {"number": 5, "title": "...", "scene_jobs_a": ["...","...","..."], "scene_jobs_b": ["...","...","..."], "cliffhanger": "...", "choice_q": "...", "choice_a": {"label":"...","sub":"..."}, "choice_b": {"label":"...","sub":"..."}},
+    {
+      "number": 6,
+      "title": "...",
+      "scene_jobs_a": ["resolution for path A, scene 1","scene 2","scene 3 — echo ep1"],
+      "scene_jobs_b": ["resolution for path B, scene 1","scene 2","scene 3 — echo ep1"]
+    }
   ]
 }
 
-Rules: choice A and B must feel morally opposite. Neither is obviously correct.` }
-  ]);
+Rules: choice A aur B morally opposite feel hone chahiye. Koi clearly correct nahi.` }
+  ], 'gpt-4o');
 }
 
-async function stageScenes(bible, epPlan, prevLastLine, epNum) {
-  const style = IMG_STYLE[bible.genre] || IMG_STYLE.MYTHOLOGY;
-  const sceneJobs = epPlan.scene_jobs || ['open the scene', 'develop the action', 'conclude the episode'];
-  const prevText = prevLastLine ? `Previous scene ended with: "${prevLastLine}"` : 'This is the very first scene of the story — open in the middle of something already happening.';
-  const cliffText = epPlan.cliffhanger ? `This episode must build toward and end with: "${epPlan.cliffhanger}"` : 'This is the final episode — close the story with earned resolution.';
+async function stageScenes(bible, epPlan, prevLastLine, epNum, prevChoiceLabel, bannedLines) {
+  const sceneJobs = epPlan.scene_jobs || ['scene kholo', 'action develop karo', 'episode band karo'];
+  const prevText = prevLastLine
+    ? `Pichli scene khatam hui thi: "${prevLastLine}"`
+    : 'Yeh story ki pehli scene hai — seedha action ke beech mein shuru karo, koi backstory ya introduction nahi.';
+  const cliffText = epPlan.cliffhanger
+    ? `Is episode ka anjaam is cliffhanger par hona chahiye: "${epPlan.cliffhanger}"`
+    : 'Yeh aakhri episode hai — earned, resolved closure do. Ep1 ki koi cheez echo honi chahiye.';
+  const choiceText = prevChoiceLabel
+    ? `Player ne pichle episode mein yeh choose kiya tha: "${prevChoiceLabel}". Uska consequence is episode ki pehli scene mein clearly dikhna chahiye — player ko feel hona chahiye ki unki choice mattered.`
+    : '';
+  const bannedText = (bannedLines && bannedLines.length)
+    ? `In phrases ko BILKUL mat repeat karo — paraphrase bhi nahi:\n${bannedLines.slice(-12).join('\n')}`
+    : '';
+
   return oaiChat([
-    { role: 'system', content: `You are writing 3 scenes for episode ${epNum} of an Indian interactive story.
-Genre: ${bible.genre} | City: ${bible.city}
+    { role: 'system', content: `Tu episode ${epNum} ke 3 scenes likh raha hai ek Indian interactive story ke liye.
+Genre: ${bible.genre} | Shehar: ${bible.city}
 Story rules: ${bible.story_rules.join(' | ')}
-Protagonist speech tic: ${bible.protagonist.speech_tic}
+Protagonist: ${bible.protagonist.name} (${bible.protagonist.age} saal). Speech tic: ${bible.protagonist.speech_tic}
+Characters: ${(bible.characters || []).map(c => `${c.name} (${c.role})`).join(', ')}
 ${cliffText}
 ${prevText}
-Output JSON only.` },
+${choiceText}
+${bannedText}
+Output sirf JSON.` },
     { role: 'user', content: `Scene jobs:
 1. ${sceneJobs[0]}
 2. ${sceneJobs[1]}
 3. ${sceneJobs[2]}
 
-Write all 3 scenes. For each scene output:
-- hl: Hinglish emotional peak, 10-15 words, natural spoken, NOT a summary, mix Hindi+English organically. Use protagonist speech tic when they're the focus.
-- body: English narration, 2-4 sentences, one concrete sensory detail (smell/sound/texture/temperature), no adverbs, last sentence escalates or makes next scene inevitable.
-- img_prompt: Start with "${style.prefix}" then describe the cinematic visual of this scene (lighting, time of day, key foreground element, Indian setting/location if named). End with "${style.suffix}". Max 60 words. No character faces.
+Teeno scenes likho. Har scene ke liye output:
+
+narrator: Hinglish third-person present tense. 2-3 sentences. Ek concrete sensory detail (smell/awaaz/texture/temperature) zaroor ho. Action aur emotion dikhao — explain mat karo. Last sentence next scene ko inevitable banaye ya tension badhaye.
+
+dialogues: 1 se 3 lines. Characters ki direct awaaz — first-person, conversational, no attribution tags ("Rahul ne kaha" mat likho — sirf dialogue). Har line alag string. Protagonist bol raha ho toh speech tic ("${bible.protagonist.speech_tic}") use karo.
+
+Language: Roman script Hinglish — Hindi aur English naturally mix honi chahiye, jaise real urban Indian bolte hain. Na pure Hindi, na pure English.
 
 Output JSON:
 {
   "scenes": [
-    {"hl": "...", "body": "...", "img_prompt": "..."},
-    {"hl": "...", "body": "...", "img_prompt": "..."},
-    {"hl": "...", "body": "...", "img_prompt": "..."}
+    {"narrator": "...", "dialogues": ["...", "..."]},
+    {"narrator": "...", "dialogues": ["..."]},
+    {"narrator": "...", "dialogues": ["...", "..."]}
   ]
 }` }
   ]);
+}
+
+/* ---------- CONTENT HELPERS ---------- */
+function _extractLastLine(scenes) {
+  const lastScene = scenes[scenes.length - 1];
+  if (!lastScene) return '';
+  const text = lastScene.narrator || lastScene.body || '';
+  const sentences = text.split(/[.!?।]+/).map(s => s.trim()).filter(Boolean);
+  return sentences[sentences.length - 1] || '';
+}
+
+function _extractBannedLines(scenes) {
+  const lines = [];
+  for (const s of scenes || []) {
+    if (s.narrator) {
+      s.narrator.split(/[.!?।]+/).map(x => x.trim()).filter(x => x.length > 12).forEach(x => lines.push(x));
+    }
+    if (s.dialogues) s.dialogues.filter(d => d.length > 5).forEach(d => lines.push(d));
+    if (s.hl) lines.push(s.hl);
+  }
+  return lines;
 }
 
 /* ---------- CHECKLIST HELPERS ---------- */
@@ -2192,7 +2271,7 @@ const GEN_STEP_LABELS = [
   'Building your story world',
   'Planning 6 episode arcs',
   'Writing all scenes',
-  'Generating scene visuals',
+  'Generating cover art',
   'Putting it all together'
 ];
 
@@ -2225,26 +2304,53 @@ function showGenError(msg) {
 }
 
 /* ---------- STORY ASSEMBLY ---------- */
-function assembleStory(bible, arc, episodeScenes) {
+function _normalizeScenes(rawScenes) {
+  return (rawScenes || []).map(s => ({
+    narrator: s.narrator || s.body || '',
+    dialogues: s.dialogues || (s.hl ? [s.hl] : []),
+    img: s.img || ''
+  }));
+}
+
+function assembleStory(bible, arc, episodeScenes, coverImg) {
   const eps = arc.episodes || [];
   const episodes = eps.map((epPlan, i) => {
-    const scenes = (episodeScenes[i]?.scenes || []).map(s => ({ img: s.img || '', img_prompt: s.img_prompt || '', hl: s.hl, body: s.body }));
+    const isFirst = i === 0;
     const isLast = i === eps.length - 1;
-    if (isLast) {
-      return { title: epPlan.title || 'Ek Ant', scenesA: scenes, scenesB: scenes };
+
+    if (isFirst) {
+      // Ep1: single scene path, no branching
+      const scenes = _normalizeScenes(episodeScenes[i]?.A || episodeScenes[i]?.scenes || []);
+      return {
+        title: epPlan.title || 'Episode 1',
+        scenes,
+        choice: {
+          q: epPlan.choice_q || 'Aage kya hoga?',
+          A: { text: epPlan.choice_a?.label || 'Option A', sub: epPlan.choice_a?.sub || '' },
+          B: { text: epPlan.choice_b?.label || 'Option B', sub: epPlan.choice_b?.sub || '' }
+        }
+      };
     }
-    const lastImg = scenes[scenes.length - 1]?.img || '';
+
+    const scenesA = _normalizeScenes(episodeScenes[i]?.A || []);
+    const scenesB = _normalizeScenes(episodeScenes[i]?.B || scenesA);
+
+    if (isLast) {
+      return { title: epPlan.title || 'Ek Ant', scenesA, scenesB };
+    }
+
     return {
       title: epPlan.title || ('Episode ' + (i + 1)),
-      scenes,
+      scenesA,
+      scenesB,
       choice: {
-        q: epPlan.choice_q || 'What does the protagonist do?',
-        A: { text: epPlan.choice_a?.label || 'Option A', sub: epPlan.choice_a?.sub || '', img: lastImg },
-        B: { text: epPlan.choice_b?.label || 'Option B', sub: epPlan.choice_b?.sub || '', img: lastImg }
+        q: epPlan.choice_q || 'Aage kya hoga?',
+        A: { text: epPlan.choice_a?.label || 'Option A', sub: epPlan.choice_a?.sub || '' },
+        B: { text: epPlan.choice_b?.label || 'Option B', sub: epPlan.choice_b?.sub || '' }
       }
     };
   });
-  return { title: bible.title, genre: bible.genre, episodes };
+  return { title: bible.title, genre: bible.genre, cover_img: coverImg || '', episodes };
 }
 
 function assembleCredits(arc, bible) {
@@ -2265,7 +2371,7 @@ async function runPipeline(userPrompt) {
   document.getElementById('gen-error').style.display = 'none';
 
   try {
-    // Stage 1+2: Genre + Bible
+    // Stage 1: Bible (gpt-4o)
     setGenItem(0, 'active');
     setGenEta('Estimated: 3–5 minutes');
     const bible = await stageBible(userPrompt);
@@ -2273,54 +2379,73 @@ async function runPipeline(userPrompt) {
     const genLabel = bible.genre.charAt(0) + bible.genre.slice(1).toLowerCase();
     setGenBadge('✓ ' + genLabel + ' detected!');
 
-    // Stage 3: Arc Planner
+    // Stage 2: Arc Planner (gpt-4o)
     setGenItem(1, 'active');
     const arcData = await stageArc(bible);
     const arc = arcData.episodes ? arcData : { episodes: Object.values(arcData)[0] || [] };
     setGenItem(1, 'done');
 
-    // Stage 4+5: Scenes per episode (sequential for daisy-chain continuity)
+    // Stage 3: Scenes — ep1 single, eps 2-6 dual branch (A and B in parallel)
     setGenItem(2, 'active');
-    setGenEta('Writing 6 episodes...');
+    setGenEta('Writing episode 1...');
     const episodeScenes = [];
-    let prevLastLine = '';
-    for (let i = 0; i < arc.episodes.length; i++) {
-      setGenEta(`Writing episode ${i + 1} of ${arc.episodes.length}...`);
-      const result = await stageScenes(bible, arc.episodes[i], prevLastLine, i + 1);
-      episodeScenes.push(result);
-      const lastScene = result.scenes[result.scenes.length - 1];
-      if (lastScene?.body) {
-        const sentences = lastScene.body.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
-        prevLastLine = sentences[sentences.length - 1] || '';
-      }
+    const bannedLines = [];
+
+    // Ep1: no branching, no prior choice
+    const ep1Result = await stageScenes(bible, arc.episodes[0], '', 1, null, []);
+    if (!ep1Result?.scenes?.length) throw new Error('Episode 1 returned no scenes — please try again.');
+    episodeScenes[0] = { A: ep1Result.scenes, B: ep1Result.scenes };
+    _extractBannedLines(ep1Result.scenes).forEach(l => bannedLines.push(l));
+    let prevLastLineA = _extractLastLine(ep1Result.scenes);
+    let prevLastLineB = prevLastLineA;
+
+    // Eps 2-6: generate both branches in parallel
+    for (let i = 1; i < arc.episodes.length; i++) {
+      setGenEta(`Writing episode ${i + 1} of ${arc.episodes.length} (both paths)...`);
+      const epPlan = arc.episodes[i];
+      const prevEp = arc.episodes[i - 1];
+      const choiceLabelA = prevEp.choice_a?.label || '';
+      const choiceLabelB = prevEp.choice_b?.label || '';
+      const epPlanA = { ...epPlan, scene_jobs: epPlan.scene_jobs_a || epPlan.scene_jobs || [] };
+      const epPlanB = { ...epPlan, scene_jobs: epPlan.scene_jobs_b || epPlan.scene_jobs || [] };
+      const currentBanned = [...bannedLines];
+
+      const [resA, resB] = await Promise.all([
+        stageScenes(bible, epPlanA, prevLastLineA, i + 1, choiceLabelA, currentBanned),
+        stageScenes(bible, epPlanB, prevLastLineB, i + 1, choiceLabelB, currentBanned)
+      ]);
+      if (!resA?.scenes?.length || !resB?.scenes?.length) throw new Error(`Episode ${i + 1} returned no scenes — please try again.`);
+      episodeScenes[i] = { A: resA.scenes, B: resB.scenes };
+
+      _extractBannedLines(resA.scenes).forEach(l => bannedLines.push(l));
+      _extractBannedLines(resB.scenes).forEach(l => bannedLines.push(l));
+      if (bannedLines.length > 48) bannedLines.splice(0, bannedLines.length - 48);
+      prevLastLineA = _extractLastLine(resA.scenes);
+      prevLastLineB = _extractLastLine(resB.scenes);
     }
     setGenItem(2, 'done');
 
-    // Stage 6: Image generation — sequential with retry on rate limits
+    // Stage 4: Single cover image from bible cover_prompt
     setGenItem(3, 'active');
-    const allSceneRefs = episodeScenes.flatMap(ep => ep.scenes || []);
-    for (let i = 0; i < allSceneRefs.length; i++) {
-      const sc = allSceneRefs[i];
-      setGenEta(`Generating image ${i + 1} of ${allSceneRefs.length}...`);
-      if (!sc.img_prompt) { sc.img = ''; continue; }
-      let imgUrl = '';
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try { imgUrl = await oaiImage(sc.img_prompt); break; }
-        catch (e) {
-          const rateLimit = e.message.includes('429') || e.message.toLowerCase().includes('rate');
-          if (attempt < 2 && rateLimit) {
-            setGenEta(`Rate limit — retrying image ${i + 1} in 30s...`);
-            await new Promise(r => setTimeout(r, 30000));
-          } else { console.warn('Image', i + 1, 'failed:', e.message); break; }
-        }
+    setGenEta('Generating cover art...');
+    const style = IMG_STYLE[bible.genre] || IMG_STYLE.MYTHOLOGY;
+    const coverPromptFull = style.prefix + ' ' + (bible.cover_prompt || bible.logline) + ' ' + style.suffix;
+    let coverImg = '';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try { coverImg = await oaiImage(coverPromptFull); break; }
+      catch (e) {
+        const rateLimit = e.message?.includes('429') || e.message?.toLowerCase().includes('rate');
+        if (attempt < 2 && rateLimit) {
+          setGenEta('Rate limit — retrying cover art in 30s...');
+          await new Promise(r => setTimeout(r, 30000));
+        } else { console.warn('Cover image failed:', e.message); break; }
       }
-      sc.img = imgUrl;
     }
     setGenItem(3, 'done');
 
     // Assembly
     setGenItem(4, 'active');
-    CURRENT_STORY = assembleStory(bible, arc, episodeScenes);
+    CURRENT_STORY = assembleStory(bible, arc, episodeScenes, coverImg);
     CURRENT_CREDIT_MAP = assembleCredits(arc, bible);
     saveGeneratedStory(CURRENT_STORY, CURRENT_CREDIT_MAP);
     setGenItem(4, 'done');
@@ -2347,17 +2472,10 @@ const STORIES_KEY = 'katha_stories_v1';
 const PLAYED_KEY  = 'katha_played_v1';
 
 function _prepareForStorage(story) {
-  // Replace any non-permanent image URL (data: blobs or expiring OpenAI CDN URLs)
-  // with deterministic Pollinations URLs so saved stories never have broken images.
+  // Cover image: data: blobs are too large for localStorage — drop them; card falls back to genre gradient
   const clone = JSON.parse(JSON.stringify(story));
-  for (const ep of clone.episodes || []) {
-    for (const key of ['scenes', 'scenesA', 'scenesB']) {
-      for (const sc of ep[key] || []) {
-        if (sc.img && sc.img_prompt && !sc.img.includes('pollinations.ai')) {
-          sc.img = _pollinationsUrl(sc.img_prompt);
-        }
-      }
-    }
+  if (clone.cover_img && clone.cover_img.startsWith('data:')) {
+    clone.cover_img = '';
   }
   return clone;
 }
@@ -2410,7 +2528,7 @@ function renderFeedGenerated() {
   loadSavedStories().forEach(entry => {
     const s = entry.story;
     const gc = GENRE_COLORS[s.genre] || GENRE_COLORS.MYTHOLOGY;
-    const firstImg = s.episodes?.[0]?.scenes?.[0]?.img || '';
+    const firstImg = s.cover_img || s.episodes?.[0]?.scenes?.[0]?.img || '';
     const genreLabel = s.genre ? (s.genre.charAt(0) + s.genre.slice(1).toLowerCase()) : 'Story';
     const card = document.createElement('div');
     card.className = 'feed-card generated';
@@ -2425,7 +2543,7 @@ function renderFeedGenerated() {
         '</div></div>' +
         '<div class="feed-spacer"></div>' +
         '<div class="feed-bottom">' +
-          '<div class="feed-hook">' + _esc(s.episodes?.[0]?.scenes?.[0]?.body || '') + '</div>' +
+          '<div class="feed-hook">' + _esc(s.episodes?.[0]?.scenes?.[0]?.narrator || s.episodes?.[0]?.scenes?.[0]?.body || '') + '</div>' +
           '<div class="feed-meta"><span>6 episodes</span><span class="dot-sep"></span><span>AI generated</span></div>' +
           '<button class="btn-gold feed-play-btn" onclick="playSavedStory(' + entry.id + ')">&#9654; Play Episode 1</button>' +
         '</div>' +
@@ -2467,7 +2585,7 @@ async function loadPublicFeed() {
       const s = row.story_data;
       if (!s?.title || !s?.genre) return;
       const gc = GENRE_COLORS[s.genre?.toUpperCase()] || GENRE_COLORS.MYTHOLOGY;
-      const firstImg = s.episodes?.[0]?.scenes?.[0]?.img || '';
+      const firstImg = s.cover_img || s.episodes?.[0]?.scenes?.[0]?.img || '';
       const genreLabel = s.genre ? (s.genre.charAt(0) + s.genre.slice(1).toLowerCase()) : 'Story';
       const creator = s._creator || 'Katha User';
       const card = document.createElement('div');
@@ -2539,7 +2657,7 @@ async function loadExploreGrid() {
       const cardsEl = section.querySelector('.explore-cards');
       rows.forEach(row => {
         const s = row.story_data;
-        const img = s?.episodes?.[0]?.scenes?.[0]?.img || '';
+        const img = s?.cover_img || s?.episodes?.[0]?.scenes?.[0]?.img || '';
         const card = document.createElement('div');
         card.className = 'explore-card';
         card.style.cursor = 'pointer';
@@ -2570,7 +2688,7 @@ async function playPublicStory(rowId) {
     const { data, error } = await _supabase.from('stories').select('story_data').eq('id', rowId).single();
     if (error || !data) { alert('Story not found.'); return; }
     const s = data.story_data;
-    _recordPlayed(rowId, s.title || 'Untitled', s.episodes?.[0]?.scenes?.[0]?.img || '');
+    _recordPlayed(rowId, s.title || 'Untitled', s.cover_img || s.episodes?.[0]?.scenes?.[0]?.img || '');
     CURRENT_STORY = s;
     CURRENT_CREDIT_MAP = [];
     ST.ep = 0; ST.scene = 0; ST.choices = {}; ST.branch = null;
@@ -2626,7 +2744,7 @@ function renderProfileMyStories() {
   const stories = loadSavedStories();
   stories.forEach(entry => {
     const s = entry.story;
-    const firstImg = s.episodes?.[0]?.scenes?.[0]?.img || '';
+    const firstImg = s.cover_img || s.episodes?.[0]?.scenes?.[0]?.img || '';
     const card = document.createElement('div');
     card.className = 'story-card';
     card.setAttribute('onclick', 'playSavedStory(' + entry.id + ')');
