@@ -1250,34 +1250,12 @@
     <!-- =================== FEED =================== -->
     <section id="s-feed" class="screen">
       <div class="feed-reel" id="feed-reel">
-
-        <!-- Card 1: Kashi Ka Khazana -->
-        <div class="feed-card">
-          <div class="feed-fallback"></div>
-          <img class="feed-bg" src="images/webp/feedcard.webp" alt="" decoding="async" onerror="this.style.display='none'">
-          <div class="feed-grad"></div>
-          <div class="feed-content">
-            <div class="feed-top">
-              <div class="feed-top-text">
-                <div class="feed-title">Kashi Ka Khazana</div>
-                <div class="feed-badge">Mythology · 6 episodes</div>
-              </div>
-            </div>
-            <div class="feed-spacer"></div>
-            <div class="feed-bottom">
-              <div class="feed-hook">A coin under his pillow. A king in his dreams. One boy must find the treasure of Kashi — before someone else does.</div>
-              <div class="feed-meta">
-                <span>6 episodes</span>
-                <span class="dot-sep"></span>
-                <span>~12 min</span>
-                <span class="dot-sep"></span>
-                <span>2.4k playing</span>
-              </div>
-              <button class="btn-gold feed-play-btn" onclick="startStory()">▶ Play Episode 1</button>
-            </div>
-          </div>
+        <div id="feed-loading" style="display:flex;align-items:center;justify-content:center;height:100vh;color:#A0A0B8;font-size:14px;">Loading stories…</div>
+        <div id="feed-empty" style="display:none;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;color:#A0A0B8;text-align:center;padding:32px;">
+          <div style="font-size:32px;">✨</div>
+          <div style="font-size:16px;font-weight:600;color:#fff;">No stories yet</div>
+          <div style="font-size:14px;">Be the first to create one!</div>
         </div>
-
       </div><!-- .feed-reel -->
       <nav class="bnav">
         <button class="nav-item active" data-tab="feed" onclick="navTo('feed')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></span><span>Feed</span></button>
@@ -1489,91 +1467,12 @@
         <div class="explore-header">Explore</div>
         <div class="explore-sub">Stories by theme</div>
 
-        <!-- MYTHOLOGY -->
-        <div class="explore-section">
-          <div class="explore-section-head">
-            <span class="explore-genre-icon myth"></span>
-            <span class="explore-genre-name">Mythology</span>
-            <span class="explore-genre-count">12 stories</span>
-          </div>
-          <div class="explore-cards">
-            <div class="explore-card" onclick="startStory()">
-              <img src="images/webp/feedcard.webp" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">
-              <div class="explore-card-grad"></div>
-              <div class="explore-card-info">
-                <div class="explore-card-badge badge-myth">Mythology</div>
-                <div class="explore-card-title">Kashi Ka Khazana</div>
-                <div class="explore-card-eps">6 eps · 2.4k playing</div>
-              </div>
-            </div>
-            <div class="explore-card" style="opacity:0.45;cursor:default;pointer-events:none;">
-              <img src="images/webp/ep3-s1.webp" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">
-              <div class="explore-card-grad"></div>
-              <div class="explore-card-info">
-                <div class="explore-card-badge badge-myth">Mythology</div>
-                <div class="explore-card-title">Hanuman ki Sabse Badi Pariksha</div>
-                <div class="explore-card-eps">6 eps · 1.1k playing</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ROMANCE -->
-        <div class="explore-section">
-          <div class="explore-section-head">
-            <span class="explore-genre-icon romance"></span>
-            <span class="explore-genre-name">Romance</span>
-            <span class="explore-genre-count">18 stories</span>
-          </div>
-          <div class="explore-cards">
-            <div class="explore-card" style="opacity:0.45;cursor:default;pointer-events:none;">
-              <img src="images/webp/ep1-s2.webp" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">
-              <div class="explore-card-grad"></div>
-              <div class="explore-card-info">
-                <div class="explore-card-badge badge-romance">Romance</div>
-                <div class="explore-card-title">Pehli Baarish, Pehla Pyaar</div>
-                <div class="explore-card-eps">6 eps · 3.7k playing</div>
-              </div>
-            </div>
-            <div class="explore-card" style="opacity:0.45;cursor:default;pointer-events:none;">
-              <img src="images/webp/ep2-s1.webp" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">
-              <div class="explore-card-grad"></div>
-              <div class="explore-card-info">
-                <div class="explore-card-badge badge-romance">Romance</div>
-                <div class="explore-card-title">Last Bench Wali Ladki</div>
-                <div class="explore-card-eps">6 eps · 2.1k playing</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- THRILLER -->
-        <div class="explore-section">
-          <div class="explore-section-head">
-            <span class="explore-genre-icon thriller"></span>
-            <span class="explore-genre-name">Thriller</span>
-            <span class="explore-genre-count">9 stories</span>
-          </div>
-          <div class="explore-cards">
-            <div class="explore-card" style="opacity:0.45;cursor:default;pointer-events:none;">
-              <img src="images/webp/ep4-s1.webp" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">
-              <div class="explore-card-grad"></div>
-              <div class="explore-card-info">
-                <div class="explore-card-badge badge-thriller">Thriller</div>
-                <div class="explore-card-title">Raat Ko Phone Aaya</div>
-                <div class="explore-card-eps">6 eps · 1.8k playing</div>
-              </div>
-            </div>
-            <div class="explore-card" style="opacity:0.45;cursor:default;pointer-events:none;">
-              <img src="images/webp/ep5-s1.webp" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">
-              <div class="explore-card-grad"></div>
-              <div class="explore-card-info">
-                <div class="explore-card-badge badge-thriller">Thriller</div>
-                <div class="explore-card-title">Apartment 404</div>
-                <div class="explore-card-eps">6 eps · 990 playing</div>
-              </div>
-            </div>
-          </div>
+        <div id="explore-loading" style="padding:32px;text-align:center;color:#A0A0B8;font-size:14px;">Loading stories…</div>
+        <div id="explore-grid"></div>
+        <div id="explore-empty" style="display:none;text-align:center;padding:64px 24px;color:#A0A0B8;">
+          <div style="font-size:32px;margin-bottom:12px;">✨</div>
+          <div style="font-size:16px;font-weight:600;color:#fff;margin-bottom:6px;">No stories yet</div>
+          <div style="font-size:14px;">Be the first to create one!</div>
         </div>
 
       </div>
@@ -1590,13 +1489,10 @@
       <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 32px 0;">
         <div style="font-size:36px;font-weight:800;letter-spacing:-1px;margin-bottom:6px;">Katha<span style="color:#FFB020;">.</span></div>
         <div style="color:#A0A0B8;font-size:14px;margin-bottom:48px;">Your story. Your choice.</div>
-        <div id="onboard-preview" style="width:100%;border-radius:20px;overflow:hidden;position:relative;height:220px;background:#111;">
-          <img src="images/webp/feedcard.webp" style="width:100%;height:100%;object-fit:cover;opacity:0.7;" decoding="async" onerror="this.style.display='none'">
-          <div style="position:absolute;inset:0;background:linear-gradient(to top,#08080F 0%,transparent 60%);"></div>
-          <div style="position:absolute;bottom:16px;left:16px;right:16px;">
-            <div style="font-size:16px;font-weight:700;">Kashi Ka Khazana</div>
-            <div style="font-size:12px;color:#A0A0B8;margin-top:2px;">Mythology · 6 episodes · Your choices shape the story</div>
-          </div>
+        <div id="onboard-preview" style="width:100%;border-radius:20px;overflow:hidden;position:relative;height:220px;background:linear-gradient(135deg,#1a0a2e 0%,#0d1a2e 50%,#0a1a0d 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
+          <div style="font-size:40px;">📖</div>
+          <div style="font-size:16px;font-weight:700;text-align:center;padding:0 24px;">Your story. Your choices.</div>
+          <div style="font-size:12px;color:#A0A0B8;text-align:center;padding:0 24px;">AI generates a unique story from your prompt — every choice you make shapes the ending.</div>
         </div>
       </div>
       <div style="padding:28px 24px 40px;">
@@ -1843,6 +1739,7 @@ function navTo(tab) {
     else b.classList.remove('active');
   });
   if (tab === 'feed') { renderFeedGenerated(); loadPublicFeed(); }
+  if (tab === 'explore') { loadExploreGrid(); }
   if (tab === 'profile') { renderProfileMyStories(); renderProfileHead(); _updateAuthUI(); updateDbStatusUI(); }
 }
 
@@ -2546,15 +2443,27 @@ async function loadPublicFeed() {
   const now = Date.now();
   if (now - _publicFeedTs < 30000) return; // cache 30s
   const reel = document.getElementById('feed-reel');
+  const loadingEl = document.getElementById('feed-loading');
+  const emptyEl = document.getElementById('feed-empty');
   if (!reel) return;
+  if (loadingEl) loadingEl.style.display = 'flex';
+  if (emptyEl) emptyEl.style.display = 'none';
   try {
     const { data, error } = await _supabase
       .from('stories')
       .select('id, story_data, created_at')
       .order('created_at', { ascending: false })
       .limit(20);
-    if (error || !data?.length) return;
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (error || !data?.length) {
+      // Only show empty state if there are also no locally generated cards
+      if (!reel.querySelector('.feed-card')) {
+        if (emptyEl) emptyEl.style.display = 'flex';
+      }
+      return;
+    }
     _publicFeedTs = now;
+    if (emptyEl) emptyEl.style.display = 'none';
     // Remove previously inserted public cards
     reel.querySelectorAll('.feed-card.public').forEach(c => c.remove());
     data.forEach(row => {
@@ -2585,7 +2494,76 @@ async function loadPublicFeed() {
         '</div>';
       reel.appendChild(card);
     });
-  } catch(e) { console.warn('Public feed load error:', e); }
+  } catch(e) {
+    console.warn('Public feed load error:', e);
+    if (loadingEl) loadingEl.style.display = 'none';
+  }
+}
+
+let _exploreTs = 0;
+async function loadExploreGrid() {
+  if (!_supabase) return;
+  const now = Date.now();
+  if (now - _exploreTs < 30000) return;
+  const grid = document.getElementById('explore-grid');
+  const loadingEl = document.getElementById('explore-loading');
+  const emptyEl = document.getElementById('explore-empty');
+  if (!grid) return;
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (emptyEl) emptyEl.style.display = 'none';
+  try {
+    const { data, error } = await _supabase
+      .from('stories')
+      .select('id, story_data, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (error || !data?.length) {
+      if (emptyEl) emptyEl.style.display = 'block';
+      return;
+    }
+    _exploreTs = now;
+    if (emptyEl) emptyEl.style.display = 'none';
+    grid.innerHTML = '';
+    // Group by genre
+    const byGenre = {};
+    data.forEach(row => {
+      const genre = (row.story_data?.genre || 'OTHER').toUpperCase();
+      if (!byGenre[genre]) byGenre[genre] = [];
+      byGenre[genre].push(row);
+    });
+    Object.entries(byGenre).forEach(([genre, rows]) => {
+      const gc = GENRE_COLORS[genre] || GENRE_COLORS.MYTHOLOGY;
+      const genreLabel = genre.charAt(0) + genre.slice(1).toLowerCase();
+      const section = document.createElement('div');
+      section.className = 'explore-section';
+      const countText = rows.length + (rows.length === 1 ? ' story' : ' stories');
+      section.innerHTML = '<div class="explore-section-head"><span class="explore-genre-name">' + _esc(genreLabel) + '</span><span class="explore-genre-count">' + countText + '</span></div><div class="explore-cards"></div>';
+      const cardsEl = section.querySelector('.explore-cards');
+      rows.forEach(row => {
+        const s = row.story_data;
+        const img = s?.episodes?.[0]?.scenes?.[0]?.img || '';
+        const card = document.createElement('div');
+        card.className = 'explore-card';
+        card.style.cursor = 'pointer';
+        card.innerHTML =
+          (img ? '<img src="' + _esc(img) + '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' : '<div style="position:absolute;inset:0;background:' + gc.fallback + ';border-radius:inherit;"></div>') +
+          '<div class="explore-card-grad"></div>' +
+          '<div class="explore-card-info">' +
+            '<div class="explore-card-badge" style="background:' + gc.bg + ';color:' + gc.color + ';">' + _esc(genreLabel) + '</div>' +
+            '<div class="explore-card-title">' + _esc(s?.title || 'Untitled') + '</div>' +
+            '<div class="explore-card-eps">6 eps · By ' + _esc(s?._creator || 'Katha User') + '</div>' +
+          '</div>';
+        card.onclick = () => playPublicStory(row.id);
+        cardsEl.appendChild(card);
+      });
+      grid.appendChild(section);
+    });
+  } catch(e) {
+    console.warn('Explore load error:', e);
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = 'block';
+  }
 }
 
 async function playPublicStory(rowId) {
@@ -2650,6 +2628,7 @@ function closeProfileSettings() {
 /* ---------- SUPABASE / AUTH ---------- */
 let _supabase = null;
 let _currentUser = null;
+let _signingOut = false;
 
 const _SB_URL = 'https://vxpiktpczpnwbxzrlrfv.supabase.co';
 const _SB_KEY = 'sb_publishable_7AHJ_aL1DchcUjk9_0KiNQ_zewZxlbr';
@@ -2663,7 +2642,7 @@ function initSupabase() {
       _currentUser = session?.user || null;
       _updateAuthUI();
       renderProfileHead();
-      if (_currentUser) {
+      if (!_signingOut && _currentUser) {
         await _syncFromDb();
         if (wasLoggedOut || event === 'SIGNED_IN') {
           if (!_getDisplayName()) {
@@ -2740,14 +2719,22 @@ function resetOnboardScreen() {
 }
 
 async function doSignOut() {
+  _signingOut = true;
   closeProfileSettings();
   try { if (_supabase) await _supabase.auth.signOut(); } catch(e) { /* ignore */ }
   _currentUser = null;
+  _publicFeedTs = 0;
+  _exploreTs = 0;
   localStorage.removeItem('katha_display_name');
   localStorage.removeItem('katha_stories_v1');
   _updateAuthUI();
   resetOnboardScreen();
+  // Clear DB-sourced content from UI
+  document.querySelectorAll('.feed-card.public').forEach(c => c.remove());
+  const exploreGrid = document.getElementById('explore-grid');
+  if (exploreGrid) exploreGrid.innerHTML = '';
   navTo('onboard');
+  setTimeout(() => { _signingOut = false; }, 500);
 }
 
 /* ---------- ONBOARDING: EMAIL OTP ---------- */
