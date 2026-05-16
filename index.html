@@ -2179,22 +2179,26 @@ async function _preloadImg(url) {
 }
 
 async function oaiImage(prompt) {
-  // Try DALL-E 3 first (if user has billing enabled)
   const key = getApiKey();
   if (key) {
-    try {
-      const res = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-        body: JSON.stringify({ model: 'dall-e-3', prompt, size: '1024x1024', quality: 'standard', n: 1 })
-      });
-      if (res.ok) {
-        const d = await res.json();
-        if (d.data?.[0]?.url) return d.data[0].url;
-      }
-    } catch(e) { /* fall through to Pollinations */ }
+    // Try gpt-image-1-mini first, then gpt-image-1 as fallback
+    for (const model of ['gpt-image-1-mini', 'gpt-image-1']) {
+      try {
+        const res = await fetch('https://api.openai.com/v1/images/generations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+          body: JSON.stringify({ model, prompt, size: '1024x1024', n: 1 })
+        });
+        if (res.ok) {
+          const d = await res.json();
+          const b64 = d.data?.[0]?.b64_json;
+          if (b64) return 'data:image/png;base64,' + b64;
+          if (d.data?.[0]?.url) return d.data[0].url;
+        }
+      } catch(e) { /* try next model */ }
+    }
   }
-  // Free fallback: Pollinations.ai (deterministic — same prompt = same image across sessions)
+  // Free fallback: Pollinations.ai (deterministic seed — same prompt = same image across sessions)
   return await _preloadImg(_pollinationsUrl(prompt));
 }
 
@@ -2370,7 +2374,7 @@ function showGenError(msg) {
 function assembleStory(bible, arc, episodeScenes) {
   const eps = arc.episodes || [];
   const episodes = eps.map((epPlan, i) => {
-    const scenes = (episodeScenes[i]?.scenes || []).map(s => ({ img: s.img || '', hl: s.hl, body: s.body }));
+    const scenes = (episodeScenes[i]?.scenes || []).map(s => ({ img: s.img || '', img_prompt: s.img_prompt || '', hl: s.hl, body: s.body }));
     const isLast = i === eps.length - 1;
     if (isLast) {
       return { title: epPlan.title || 'Ek Ant', scenesA: scenes, scenesB: scenes };
@@ -2487,14 +2491,30 @@ function clearGenTimers() {
 /* ---------- STORY STORAGE ---------- */
 const STORIES_KEY = 'katha_stories_v1';
 
+function _prepareForStorage(story) {
+  // Replace in-memory data: URLs with deterministic Pollinations URLs for persistence
+  const clone = JSON.parse(JSON.stringify(story));
+  for (const ep of clone.episodes || []) {
+    for (const key of ['scenes', 'scenesA', 'scenesB']) {
+      for (const sc of ep[key] || []) {
+        if (sc.img && sc.img.startsWith('data:') && sc.img_prompt) {
+          sc.img = _pollinationsUrl(sc.img_prompt);
+        }
+      }
+    }
+  }
+  return clone;
+}
+
 async function saveGeneratedStory(story, creditMap) {
+  const persistStory = _prepareForStorage(story); // swap data: URLs → Pollinations URLs
   try {
     const saved = JSON.parse(localStorage.getItem(STORIES_KEY) || '[]');
-    saved.unshift({ id: Date.now(), story, creditMap, createdAt: Date.now() });
+    saved.unshift({ id: Date.now(), story: persistStory, creditMap, createdAt: Date.now() });
     if (saved.length > 5) saved.length = 5;
     localStorage.setItem(STORIES_KEY, JSON.stringify(saved));
   } catch(e) { console.warn('Save failed:', e); }
-  try { await _saveStoryToDb(story, creditMap); } catch(e) { /* silent — no DB or not logged in */ }
+  try { await _saveStoryToDb(persistStory, creditMap); } catch(e) { /* silent — no DB or not logged in */ }
 }
 
 function loadSavedStories() {
