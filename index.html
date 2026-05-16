@@ -2484,7 +2484,7 @@ async function saveGeneratedStory(story, creditMap) {
   }
   // Embed creator name so public feed can display it without extra joins
   persistStory._creator = _getDisplayName() || 'Katha User';
-  try { await _saveStoryToDb(persistStory, creditMap); } catch(e) { /* silent — no DB or not logged in */ }
+  try { await _saveStoryToDb(persistStory, creditMap); _publicFeedTs = 0; } catch(e) { /* silent — no DB or not logged in */ }
 }
 
 function loadSavedStories() {
@@ -2797,10 +2797,13 @@ async function submitOtp() {
   try {
     const { error } = await _supabase.auth.verifyOtp({ email: _pendingEmail, token, type: 'email' });
     if (error) throw error;
-    // onAuthStateChange handles navigation; fallback if it's slow
-    setTimeout(() => {
-      if (document.querySelector('#s-onboard.active')) navTo('feed');
-    }, 3000);
+    // Navigate immediately; onAuthStateChange will also fire but that's fine
+    if (!_getDisplayName()) {
+      navTo('name');
+    } else {
+      navTo('feed');
+    }
+    btn.disabled = false; btn.textContent = 'Verify →';
   } catch(e) {
     const msg = (e.message || '').toLowerCase();
     errEl.textContent = msg.includes('invalid') || msg.includes('expired')
