@@ -2507,12 +2507,13 @@ function clearGenTimers() {
 const STORIES_KEY = 'katha_stories_v1';
 
 function _prepareForStorage(story) {
-  // Replace in-memory data: URLs with deterministic Pollinations URLs for persistence
+  // Replace any non-permanent image URL (data: blobs or expiring OpenAI CDN URLs)
+  // with deterministic Pollinations URLs so saved stories never have broken images.
   const clone = JSON.parse(JSON.stringify(story));
   for (const ep of clone.episodes || []) {
     for (const key of ['scenes', 'scenesA', 'scenesB']) {
       for (const sc of ep[key] || []) {
-        if (sc.img && sc.img.startsWith('data:') && sc.img_prompt) {
+        if (sc.img && sc.img_prompt && !sc.img.includes('pollinations.ai')) {
           sc.img = _pollinationsUrl(sc.img_prompt);
         }
       }
@@ -2523,12 +2524,18 @@ function _prepareForStorage(story) {
 
 async function saveGeneratedStory(story, creditMap) {
   const persistStory = _prepareForStorage(story); // swap data: URLs → Pollinations URLs
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORIES_KEY) || '[]');
-    saved.unshift({ id: Date.now(), story: persistStory, creditMap, createdAt: Date.now() });
-    if (saved.length > 5) saved.length = 5;
-    localStorage.setItem(STORIES_KEY, JSON.stringify(saved));
-  } catch(e) { console.warn('Save failed:', e); }
+  const newEntry = { id: Date.now(), story: persistStory, creditMap, createdAt: Date.now() };
+  // Try saving with progressively fewer old stories if quota is exceeded
+  for (let maxKeep = 4; maxKeep >= 0; maxKeep--) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORIES_KEY) || '[]').slice(0, maxKeep);
+      saved.unshift(newEntry);
+      localStorage.setItem(STORIES_KEY, JSON.stringify(saved));
+      break;
+    } catch(e) {
+      if (maxKeep === 0) console.warn('localStorage quota exceeded — story saved to DB only');
+    }
+  }
   // Embed creator name so public feed can display it without extra joins
   persistStory._creator = _getDisplayName() || 'Katha User';
   try { await _saveStoryToDb(persistStory, creditMap); } catch(e) { /* silent — no DB or not logged in */ }
