@@ -1408,7 +1408,7 @@
             <div class="stat-label">Created</div>
           </div>
           <div class="stat-box">
-            <div class="stat-num">1</div>
+            <div class="stat-num" id="stat-played">0</div>
             <div class="stat-label">Played</div>
           </div>
           <div class="stat-box">
@@ -1426,12 +1426,8 @@
         </div>
 
         <div class="section-head">Played</div>
-        <div class="grid-2">
-          <div class="story-card" onclick="navTo('feed')">
-            <img class="story-card-img" src="images/webp/feedcard.webp" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">
-            <div class="story-card-grad"></div>
-            <div class="story-card-title">Kashi Ka Khazana</div>
-          </div>
+        <div class="grid-2" id="played-stories-grid">
+          <div id="played-empty" style="grid-column:1/-1;padding:16px 0;color:#A0A0B8;font-size:13px;">No stories played yet.</div>
         </div>
       </div>
       <nav class="bnav">
@@ -1740,7 +1736,7 @@ function navTo(tab) {
   });
   if (tab === 'feed') { renderFeedGenerated(); loadPublicFeed(); }
   if (tab === 'explore') { loadExploreGrid(); }
-  if (tab === 'profile') { renderProfileMyStories(); renderProfileHead(); _updateAuthUI(); updateDbStatusUI(); }
+  if (tab === 'profile') { renderProfileMyStories(); renderProfilePlayed(); renderProfileHead(); _updateAuthUI(); updateDbStatusUI(); }
 }
 
 function _getDisplayName() {
@@ -2348,6 +2344,7 @@ function clearGenTimers() {
 
 /* ---------- STORY STORAGE ---------- */
 const STORIES_KEY = 'katha_stories_v1';
+const PLAYED_KEY  = 'katha_played_v1';
 
 function _prepareForStorage(story) {
   // Replace any non-permanent image URL (data: blobs or expiring OpenAI CDN URLs)
@@ -2573,11 +2570,52 @@ async function playPublicStory(rowId) {
     const { data, error } = await _supabase.from('stories').select('story_data').eq('id', rowId).single();
     if (error || !data) { alert('Story not found.'); return; }
     const s = data.story_data;
+    _recordPlayed(rowId, s.title || 'Untitled', s.episodes?.[0]?.scenes?.[0]?.img || '');
     CURRENT_STORY = s;
     CURRENT_CREDIT_MAP = [];
     ST.ep = 0; ST.scene = 0; ST.choices = {}; ST.branch = null;
     tryStartAudio(); renderScene(); showScreen('player');
   } catch(e) { console.warn('playPublicStory error:', e); }
+}
+
+function loadPlayedStories() {
+  try { return JSON.parse(localStorage.getItem(PLAYED_KEY) || '[]'); } catch(e) { return []; }
+}
+
+function _recordPlayed(rowId, title, img) {
+  try {
+    const played = loadPlayedStories().filter(p => p.id !== rowId);
+    played.unshift({ id: rowId, title, img, ts: Date.now() });
+    localStorage.setItem(PLAYED_KEY, JSON.stringify(played.slice(0, 20)));
+  } catch(e) { /* quota — not critical */ }
+}
+
+function renderProfilePlayed() {
+  const grid = document.getElementById('played-stories-grid');
+  if (!grid) return;
+  const played = loadPlayedStories();
+  const emptyEl = document.getElementById('played-empty');
+  grid.innerHTML = '';
+  if (!played.length) {
+    const emp = document.createElement('div');
+    emp.id = 'played-empty';
+    emp.style.cssText = 'grid-column:1/-1;padding:16px 0;color:#A0A0B8;font-size:13px;';
+    emp.textContent = 'No stories played yet.';
+    grid.appendChild(emp);
+  } else {
+    played.forEach(entry => {
+      const card = document.createElement('div');
+      card.className = 'story-card';
+      card.onclick = () => playPublicStory(entry.id);
+      card.innerHTML =
+        (entry.img ? '<img class="story-card-img" src="' + _esc(entry.img) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '') +
+        '<div class="story-card-grad"></div>' +
+        '<div class="story-card-title">' + _esc(entry.title) + '</div>';
+      grid.appendChild(card);
+    });
+  }
+  const statEl = document.getElementById('stat-played');
+  if (statEl) statEl.textContent = played.length;
 }
 
 function renderProfileMyStories() {
@@ -2599,6 +2637,13 @@ function renderProfileMyStories() {
     grid.appendChild(card);
   });
   if (createBtn) grid.appendChild(createBtn);
+  else {
+    const btn = document.createElement('button');
+    btn.className = 'empty-card';
+    btn.onclick = () => navTo('create');
+    btn.innerHTML = '<span class="plus">+</span><span class="lbl">Create</span>';
+    grid.appendChild(btn);
+  }
   const statEl = document.getElementById('stat-created');
   if (statEl) statEl.textContent = stories.length;
 }
@@ -2682,6 +2727,7 @@ async function _loadStoriesFromDb() {
   if (!_supabase || !_currentUser) return null;
   const { data, error } = await _supabase
     .from('stories').select('id, story_data, credit_map, created_at')
+    .eq('user_id', _currentUser.id)
     .order('created_at', { ascending: false }).limit(10);
   if (error) { console.warn('DB load error:', error); return null; }
   return (data || []).map(r => ({ id: r.id, story: r.story_data, creditMap: r.credit_map, createdAt: new Date(r.created_at).getTime() }));
@@ -2727,6 +2773,7 @@ async function doSignOut() {
   _exploreTs = 0;
   localStorage.removeItem('katha_display_name');
   localStorage.removeItem('katha_stories_v1');
+  localStorage.removeItem('katha_played_v1');
   _updateAuthUI();
   resetOnboardScreen();
   // Clear DB-sourced content from UI
