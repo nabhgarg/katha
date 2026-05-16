@@ -1300,7 +1300,7 @@
                 <span class="dot-sep"></span>
                 <span>3.7k playing</span>
               </div>
-              <button class="btn-gold feed-play-btn" style="opacity:0.55; cursor:default;" onclick="alert('Coming soon!')">▶ Play Episode 1</button>
+              <button class="btn-gold feed-play-btn" style="opacity:0.4; cursor:default; pointer-events:none;">Coming Soon</button>
             </div>
           </div>
         </div>
@@ -1327,7 +1327,7 @@
                 <span class="dot-sep"></span>
                 <span>1.8k playing</span>
               </div>
-              <button class="btn-gold feed-play-btn" style="opacity:0.55; cursor:default;" onclick="alert('Coming soon!')">▶ Play Episode 1</button>
+              <button class="btn-gold feed-play-btn" style="opacity:0.4; cursor:default; pointer-events:none;">Coming Soon</button>
             </div>
           </div>
         </div>
@@ -1560,7 +1560,7 @@
                 <div class="explore-card-eps">6 eps · 2.4k playing</div>
               </div>
             </div>
-            <div class="explore-card" onclick="alert('Coming soon!')">
+            <div class="explore-card" style="opacity:0.45;cursor:default;pointer-events:none;">
               <img src="images/webp/ep3-s1.webp" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">
               <div class="explore-card-grad"></div>
               <div class="explore-card-info">
@@ -1580,7 +1580,7 @@
             <span class="explore-genre-count">18 stories</span>
           </div>
           <div class="explore-cards">
-            <div class="explore-card" onclick="alert('Coming soon!')">
+            <div class="explore-card" style="opacity:0.45;cursor:default;pointer-events:none;">
               <img src="images/webp/ep1-s2.webp" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">
               <div class="explore-card-grad"></div>
               <div class="explore-card-info">
@@ -1589,7 +1589,7 @@
                 <div class="explore-card-eps">6 eps · 3.7k playing</div>
               </div>
             </div>
-            <div class="explore-card" onclick="alert('Coming soon!')">
+            <div class="explore-card" style="opacity:0.45;cursor:default;pointer-events:none;">
               <img src="images/webp/ep2-s1.webp" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">
               <div class="explore-card-grad"></div>
               <div class="explore-card-info">
@@ -1609,7 +1609,7 @@
             <span class="explore-genre-count">9 stories</span>
           </div>
           <div class="explore-cards">
-            <div class="explore-card" onclick="alert('Coming soon!')">
+            <div class="explore-card" style="opacity:0.45;cursor:default;pointer-events:none;">
               <img src="images/webp/ep4-s1.webp" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">
               <div class="explore-card-grad"></div>
               <div class="explore-card-info">
@@ -1618,7 +1618,7 @@
                 <div class="explore-card-eps">6 eps · 1.8k playing</div>
               </div>
             </div>
-            <div class="explore-card" onclick="alert('Coming soon!')">
+            <div class="explore-card" style="opacity:0.45;cursor:default;pointer-events:none;">
               <img src="images/webp/ep5-s1.webp" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">
               <div class="explore-card-grad"></div>
               <div class="explore-card-info">
@@ -1889,12 +1889,17 @@ function showScreen(id) {
 }
 
 function navTo(tab) {
+  // Gate create and profile behind auth; show onboard sheet instead of hard-walling feed
+  if ((tab === 'create' || tab === 'profile') && !_currentUser) {
+    navTo('onboard');
+    return;
+  }
   showScreen(tab);
   document.querySelectorAll('.bnav .nav-item').forEach(b => {
     if (b.dataset.tab === tab) b.classList.add('active');
     else b.classList.remove('active');
   });
-  if (tab === 'feed') renderFeedGenerated();
+  if (tab === 'feed') { renderFeedGenerated(); loadPublicFeed(); }
   if (tab === 'profile') { renderProfileMyStories(); renderProfileHead(); _updateAuthUI(); updateDbStatusUI(); }
 }
 
@@ -1917,6 +1922,7 @@ function tryStartAudio() {
 
 /* ---------- STORY FLOW ---------- */
 function startStory() {
+  if (!_currentUser) { navTo('onboard'); return; }
   ST.ep = 0;
   ST.scene = 0;
   ST.choices = {};
@@ -2102,8 +2108,8 @@ function renderEnd() {
     const block = document.createElement('div');
     block.className = 'credit-block';
     block.innerHTML =
-      '<div class="credit-name">' + c.name + '</div>' +
-      '<div class="credit-beat">' + (opt === 'A' ? c.A : c.B) + '</div>';
+      '<div class="credit-name">' + _esc(c.name) + '</div>' +
+      '<div class="credit-beat">' + _esc(opt === 'A' ? c.A : c.B) + '</div>';
     wrap.appendChild(block);
   }
 }
@@ -2522,6 +2528,8 @@ async function saveGeneratedStory(story, creditMap) {
     if (saved.length > 5) saved.length = 5;
     localStorage.setItem(STORIES_KEY, JSON.stringify(saved));
   } catch(e) { console.warn('Save failed:', e); }
+  // Embed creator name so public feed can display it without extra joins
+  persistStory._creator = _getDisplayName() || 'Katha User';
   try { await _saveStoryToDb(persistStory, creditMap); } catch(e) { /* silent — no DB or not logged in */ }
 }
 
@@ -2539,6 +2547,8 @@ function playSavedStory(id) {
 }
 
 /* ---------- FEED + PROFILE REFRESH ---------- */
+function _esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 const GENRE_COLORS = {
   MYTHOLOGY: { bg:'rgba(255,176,32,0.16)', color:'#FFB020', border:'rgba(255,176,32,0.35)', fallback:'radial-gradient(ellipse at 40% 30%, rgba(255,176,32,0.22) 0%, transparent 60%), linear-gradient(135deg, #1a1200 0%, #08080F 100%)' },
   ROMANCE:   { bg:'rgba(255,80,120,0.16)',  color:'#FF5078', border:'rgba(255,80,120,0.35)',  fallback:'radial-gradient(ellipse at 40% 50%, rgba(255,80,120,0.22) 0%, transparent 60%), linear-gradient(135deg, #1a0f15 0%, #08080F 100%)' },
@@ -2562,18 +2572,80 @@ function renderFeedGenerated() {
       '<div class="feed-grad"></div>' +
       '<div class="feed-content">' +
         '<div class="feed-top"><div class="feed-top-text">' +
-          '<div class="feed-title">' + s.title + '</div>' +
-          '<div class="feed-badge" style="background:' + gc.bg + ';color:' + gc.color + ';border-color:' + gc.border + ';">' + genreLabel + ' · 6 episodes</div>' +
+          '<div class="feed-title">' + _esc(s.title) + '</div>' +
+          '<div class="feed-badge" style="background:' + gc.bg + ';color:' + gc.color + ';border-color:' + gc.border + ';">' + _esc(genreLabel) + ' · 6 episodes</div>' +
         '</div></div>' +
         '<div class="feed-spacer"></div>' +
         '<div class="feed-bottom">' +
-          '<div class="feed-hook">' + (s.episodes?.[0]?.scenes?.[0]?.body || '') + '</div>' +
+          '<div class="feed-hook">' + _esc(s.episodes?.[0]?.scenes?.[0]?.body || '') + '</div>' +
           '<div class="feed-meta"><span>6 episodes</span><span class="dot-sep"></span><span>AI generated</span></div>' +
           '<button class="btn-gold feed-play-btn" onclick="playSavedStory(' + entry.id + ')">&#9654; Play Episode 1</button>' +
         '</div>' +
       '</div>';
     reel.insertBefore(card, reel.firstChild);
   });
+}
+
+let _publicFeedTs = 0;
+async function loadPublicFeed() {
+  if (!_supabase) return;
+  const now = Date.now();
+  if (now - _publicFeedTs < 30000) return; // cache 30s
+  const reel = document.getElementById('feed-reel');
+  if (!reel) return;
+  try {
+    const { data, error } = await _supabase
+      .from('stories')
+      .select('id, story_data, created_at')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (error || !data?.length) return;
+    _publicFeedTs = now;
+    // Remove previously inserted public cards
+    reel.querySelectorAll('.feed-card.public').forEach(c => c.remove());
+    data.forEach(row => {
+      const s = row.story_data;
+      if (!s?.title || !s?.genre) return;
+      const gc = GENRE_COLORS[s.genre?.toUpperCase()] || GENRE_COLORS.MYTHOLOGY;
+      const firstImg = s.episodes?.[0]?.scenes?.[0]?.img || '';
+      const genreLabel = s.genre ? (s.genre.charAt(0) + s.genre.slice(1).toLowerCase()) : 'Story';
+      const creator = s._creator || 'Katha User';
+      const card = document.createElement('div');
+      card.className = 'feed-card public generated';
+      const rowId = row.id;
+      card.innerHTML =
+        '<div class="feed-fallback" style="background:' + gc.fallback + ';"></div>' +
+        (firstImg ? '<img class="feed-bg" src="' + _esc(firstImg) + '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' : '') +
+        '<div class="feed-grad"></div>' +
+        '<div class="feed-content">' +
+          '<div class="feed-top"><div class="feed-top-text">' +
+            '<div class="feed-title">' + _esc(s.title) + '</div>' +
+            '<div class="feed-badge" style="background:' + gc.bg + ';color:' + gc.color + ';border-color:' + gc.border + ';">' + _esc(genreLabel) + ' · 6 eps</div>' +
+          '</div></div>' +
+          '<div class="feed-spacer"></div>' +
+          '<div class="feed-bottom">' +
+            '<div class="feed-hook">' + _esc(s.episodes?.[0]?.scenes?.[0]?.text || '') + '</div>' +
+            '<div class="feed-meta"><span>By ' + _esc(creator) + '</span><span class="dot-sep"></span><span>AI generated</span></div>' +
+            '<button class="btn-gold feed-play-btn" onclick="playPublicStory(' + rowId + ')">&#9654; Play Episode 1</button>' +
+          '</div>' +
+        '</div>';
+      reel.appendChild(card);
+    });
+  } catch(e) { console.warn('Public feed load error:', e); }
+}
+
+async function playPublicStory(rowId) {
+  if (!_currentUser) { navTo('onboard'); return; }
+  if (!_supabase) return;
+  try {
+    const { data, error } = await _supabase.from('stories').select('story_data').eq('id', rowId).single();
+    if (error || !data) { alert('Story not found.'); return; }
+    const s = data.story_data;
+    CURRENT_STORY = s;
+    CURRENT_CREDIT_MAP = [];
+    ST.ep = 0; ST.scene = 0; ST.choices = {}; ST.branch = null;
+    tryStartAudio(); renderScene(); showScreen('player');
+  } catch(e) { console.warn('playPublicStory error:', e); }
 }
 
 function renderProfileMyStories() {
@@ -2591,7 +2663,7 @@ function renderProfileMyStories() {
     card.innerHTML =
       (firstImg ? '<img class="story-card-img" src="' + firstImg + '" alt="" onerror="this.style.display=\'none\'">' : '') +
       '<div class="story-card-grad"></div>' +
-      '<div class="story-card-title">' + s.title + '</div>';
+      '<div class="story-card-title">' + _esc(s.title) + '</div>';
     grid.appendChild(card);
   });
   if (createBtn) grid.appendChild(createBtn);
@@ -2753,7 +2825,10 @@ async function submitOtp() {
   try {
     const { error } = await _supabase.auth.verifyOtp({ email: _pendingEmail, token, type: 'email' });
     if (error) throw error;
-    // onAuthStateChange handles navigation to name/feed
+    // onAuthStateChange handles navigation; fallback if it's slow
+    setTimeout(() => {
+      if (document.querySelector('#s-onboard.active')) navTo('feed');
+    }, 3000);
   } catch(e) {
     const msg = (e.message || '').toLowerCase();
     errEl.textContent = msg.includes('invalid') || msg.includes('expired')
@@ -2843,7 +2918,7 @@ window.addEventListener('load', async () => {
       navTo('feed');
     }
   } else {
-    navTo('onboard');
+    navTo('feed');
   }
 });
 
