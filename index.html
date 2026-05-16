@@ -1512,9 +1512,6 @@
             <span class="settings-label">Signed in as</span>
             <span class="settings-value" id="auth-status-text">Not signed in</span>
           </div>
-          <div id="auth-login-section">
-            <button class="settings-edit-btn" onclick="openLoginModal()">Sign in to sync stories →</button>
-          </div>
           <div id="auth-loggedin-section" style="display:none;">
             <button class="settings-edit-btn" style="color:#ff6b6b;" onclick="doSignOut()">Sign out</button>
           </div>
@@ -1646,27 +1643,45 @@
       </nav>
     </section>
 
-    <!-- =================== LOGIN MODAL =================== -->
-    <div id="login-modal" style="display:none;position:fixed;inset:0;z-index:500;">
-      <div class="ov-backdrop" onclick="closeLoginModal()"></div>
-      <div class="ov-sheet">
-        <div class="drag-handle"></div>
-        <div id="login-form">
-          <div class="ov-title">Sign in to Katha<span class="dot">.</span></div>
-          <div class="ov-sub">Enter your email — we'll send a magic link. No password needed. Stories sync across all your devices.</div>
-          <div class="ov-phone-row" style="flex-direction:column;gap:8px;">
-            <input id="login-email-input" type="email" class="ov-phone" placeholder="your@email.com" style="width:100%;box-sizing:border-box;" />
+    <!-- =================== ONBOARDING SCREEN =================== -->
+    <section id="s-onboard" class="screen" style="background:#08080F;display:none;flex-direction:column;justify-content:flex-end;">
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 32px 0;">
+        <div style="font-size:36px;font-weight:800;letter-spacing:-1px;margin-bottom:6px;">Katha<span style="color:#FFB020;">.</span></div>
+        <div style="color:#A0A0B8;font-size:14px;margin-bottom:48px;">Your story. Your choice.</div>
+        <div id="onboard-preview" style="width:100%;border-radius:20px;overflow:hidden;position:relative;height:220px;background:#111;">
+          <img src="images/feedcard.png" style="width:100%;height:100%;object-fit:cover;opacity:0.7;" onerror="this.style.display='none'">
+          <div style="position:absolute;inset:0;background:linear-gradient(to top,#08080F 0%,transparent 60%);"></div>
+          <div style="position:absolute;bottom:16px;left:16px;right:16px;">
+            <div style="font-size:16px;font-weight:700;">Kashi Ka Khazana</div>
+            <div style="font-size:12px;color:#A0A0B8;margin-top:2px;">Mythology · 6 episodes · Your choices shape the story</div>
           </div>
-          <button class="btn-gold ov-otp" id="login-submit-btn" style="margin-top:8px;" onclick="submitLogin()">Send magic link →</button>
-          <button class="ov-skip" onclick="closeLoginModal()">Not now</button>
-        </div>
-        <div id="login-sent" style="display:none;">
-          <div class="ov-title">Check your email<span class="dot">.</span></div>
-          <div class="ov-sub">We sent a magic link. Click it to sign in — it works only once. You can close this.</div>
-          <button class="btn-gold ov-otp" style="margin-top:8px;" onclick="closeLoginModal()">Got it →</button>
         </div>
       </div>
-    </div>
+      <div style="padding:28px 24px 40px;">
+        <div id="onboard-form">
+          <div style="font-size:22px;font-weight:700;margin-bottom:6px;">Sign in to Katha<span style="color:#FFB020;">.</span></div>
+          <div style="font-size:13px;color:#A0A0B8;margin-bottom:20px;line-height:1.5;">Enter your email — we'll send a magic link. No password needed. Stories sync across all your devices.</div>
+          <input id="onboard-email" type="email" placeholder="your@email.com" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:14px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;margin-bottom:12px;" />
+          <div id="onboard-error" style="display:none;color:#ff6b6b;font-size:12px;margin-bottom:10px;"></div>
+          <button id="onboard-submit-btn" onclick="submitOnboard()" style="width:100%;background:#FFB020;color:#000;border:none;border-radius:12px;height:52px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;">Send magic link →</button>
+        </div>
+        <div id="onboard-sent" style="display:none;text-align:center;padding:8px 0;">
+          <div style="font-size:40px;margin-bottom:12px;">📬</div>
+          <div style="font-size:22px;font-weight:700;margin-bottom:8px;">Check your email<span style="color:#FFB020;">.</span></div>
+          <div style="font-size:13px;color:#A0A0B8;line-height:1.6;margin-bottom:24px;">We sent a magic link to <strong id="onboard-sent-email" style="color:#fff;"></strong>. Click it to sign in — it works only once.</div>
+          <button onclick="document.getElementById('onboard-sent').style.display='none';document.getElementById('onboard-form').style.display='block';" style="background:transparent;border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px 20px;color:#A0A0B8;font-size:13px;font-family:inherit;cursor:pointer;">Use a different email</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== NAME SCREEN =================== -->
+    <section id="s-name" class="screen" style="background:#08080F;display:none;flex-direction:column;justify-content:center;align-items:center;padding:40px 28px;">
+      <div style="font-size:36px;font-weight:800;letter-spacing:-1px;margin-bottom:32px;">Katha<span style="color:#FFB020;">.</span></div>
+      <div style="font-size:24px;font-weight:700;text-align:center;margin-bottom:8px;">What should we call you?</div>
+      <div style="font-size:14px;color:#A0A0B8;text-align:center;margin-bottom:32px;line-height:1.5;">Just your first name is fine. This shows up on your profile.</div>
+      <input id="name-input" type="text" placeholder="Your name" maxlength="30" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:14px 16px;font-size:16px;color:#fff;font-family:inherit;outline:none;margin-bottom:12px;text-align:center;" />
+      <button id="name-submit-btn" onclick="submitName()" style="width:100%;background:#FFB020;color:#000;border:none;border-radius:12px;height:52px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;">Start reading →</button>
+    </section>
 
     <!-- =================== API KEY MODAL =================== -->
     <div id="apikey-modal" style="display:none;position:fixed;inset:0;z-index:500;">
@@ -1894,6 +1909,10 @@ function navTo(tab) {
   });
   if (tab === 'feed') renderFeedGenerated();
   if (tab === 'profile') { renderProfileMyStories(); renderProfileApiKey(); _updateAuthUI(); updateDbStatusUI(); }
+}
+
+function _getDisplayName() {
+  return _currentUser?.user_metadata?.display_name || localStorage.getItem('katha_display_name') || '';
 }
 
 /* ---------- AUDIO ---------- */
@@ -2617,9 +2636,19 @@ function initSupabase() {
   try {
     _supabase = window.supabase.createClient(_SB_URL, _SB_KEY);
     _supabase.auth.onAuthStateChange(async (event, session) => {
+      const wasLoggedOut = !_currentUser;
       _currentUser = session?.user || null;
       _updateAuthUI();
-      if (_currentUser) { await _syncFromDb(); }
+      if (_currentUser) {
+        await _syncFromDb();
+        if (wasLoggedOut || event === 'SIGNED_IN') {
+          if (!_getDisplayName()) {
+            navTo('name');
+          } else {
+            navTo('feed');
+          }
+        }
+      }
     });
     return true;
   } catch(e) { console.error('Supabase init error:', e); return false; }
@@ -2627,10 +2656,9 @@ function initSupabase() {
 
 function _updateAuthUI() {
   const statusEl = document.getElementById('auth-status-text');
-  const loginSec = document.getElementById('auth-login-section');
   const loggedSec = document.getElementById('auth-loggedin-section');
-  if (statusEl) statusEl.textContent = _currentUser ? _currentUser.email : 'Not signed in';
-  if (loginSec) loginSec.style.display = _currentUser ? 'none' : 'block';
+  const name = _getDisplayName();
+  if (statusEl) statusEl.textContent = _currentUser ? (_currentUser.email + (name ? ' · ' + name : '')) : 'Not signed in';
   if (loggedSec) loggedSec.style.display = _currentUser ? 'block' : 'none';
 }
 
@@ -2678,32 +2706,65 @@ async function doSignOut() {
   if (!_supabase) return;
   await _supabase.auth.signOut();
   _currentUser = null;
+  localStorage.removeItem('katha_display_name');
   _updateAuthUI();
+  navTo('onboard');
 }
 
-/* ---------- LOGIN MODAL ---------- */
-function openLoginModal() {
-  if (!_supabase) { alert('Database not ready yet. Please wait a moment.'); return; }
-  document.getElementById('login-modal').style.display = 'block';
-  document.getElementById('login-form').style.display = 'block';
-  document.getElementById('login-sent').style.display = 'none';
-}
-function closeLoginModal() { document.getElementById('login-modal').style.display = 'none'; }
-async function submitLogin() {
-  const email = (document.getElementById('login-email-input')?.value || '').trim();
-  if (!email.includes('@')) { alert('Please enter a valid email'); return; }
-  const btn = document.getElementById('login-submit-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+/* ---------- ONBOARDING SCREEN ---------- */
+async function submitOnboard() {
+  const email = (document.getElementById('onboard-email')?.value || '').trim();
+  const errEl = document.getElementById('onboard-error');
+  if (!email.includes('@')) {
+    errEl.textContent = 'Please enter a valid email address.';
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+  const btn = document.getElementById('onboard-submit-btn');
+  btn.disabled = true; btn.textContent = 'Sending...';
   try {
     await signInWithEmail(email);
-    document.getElementById('login-form').style.display = 'none';
-    document.getElementById('login-sent').style.display = 'block';
+    document.getElementById('onboard-sent-email').textContent = email;
+    document.getElementById('onboard-form').style.display = 'none';
+    document.getElementById('onboard-sent').style.display = 'block';
   } catch(e) {
-    alert('Error: ' + e.message);
+    const msg = e.message || '';
+    if (msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('limit')) {
+      errEl.textContent = 'Too many attempts. Please wait a few minutes and try again.';
+    } else {
+      errEl.textContent = 'Something went wrong. Please try again.';
+    }
+    errEl.style.display = 'block';
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Send magic link →'; }
+    btn.disabled = false; btn.textContent = 'Send magic link →';
   }
 }
+
+/* ---------- NAME SCREEN ---------- */
+async function submitName() {
+  const name = (document.getElementById('name-input')?.value || '').trim();
+  if (!name) { document.getElementById('name-input').focus(); return; }
+  const btn = document.getElementById('name-submit-btn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    localStorage.setItem('katha_display_name', name);
+    if (_supabase && _currentUser) {
+      await _supabase.auth.updateUser({ data: { display_name: name } });
+    }
+    _updateAuthUI();
+    navTo('feed');
+  } catch(e) {
+    console.warn('Name save error:', e);
+    navTo('feed');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Start reading →';
+  }
+}
+
+/* ---------- COMPAT STUBS ---------- */
+function openLoginModal() { navTo('onboard'); }
+function closeLoginModal() { }
 
 /* ---------- API KEY PROFILE ---------- */
 function toggleApiKeyInput() {
@@ -2741,19 +2802,31 @@ function closeSave() {
 }
 
 /* ---------- INIT ---------- */
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
   initSupabase();
-  updateDbStatusUI();
   renderFeedGenerated();
   renderProfileMyStories();
   renderProfileApiKey();
   _updateAuthUI();
-  setTimeout(() => {
-    const splash = document.getElementById('s-splash');
-    if (splash && splash.classList.contains('active')) {
+
+  await new Promise(r => setTimeout(r, 2500));
+
+  const { data: { session } } = _supabase
+    ? await _supabase.auth.getSession().catch(() => ({ data: { session: null } }))
+    : { data: { session: null } };
+
+  if (session?.user) {
+    _currentUser = session.user;
+    _updateAuthUI();
+    await _syncFromDb();
+    if (!_getDisplayName()) {
+      navTo('name');
+    } else {
       navTo('feed');
     }
-  }, 2500);
+  } else {
+    navTo('onboard');
+  }
 });
 
 // First user tap anywhere starts audio
