@@ -1278,60 +1278,6 @@
           </div>
         </div>
 
-        <!-- Card 2: Pehli Baarish Pehla Pyaar -->
-        <div class="feed-card">
-          <div class="feed-fallback" style="background: radial-gradient(ellipse at 40% 50%, rgba(255,80,120,0.22) 0%, transparent 60%), linear-gradient(135deg, #1a0f15 0%, #08080F 100%);"></div>
-          <img class="feed-bg" src="images/webp/ep1-s2.webp" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">
-          <div class="feed-grad"></div>
-          <div class="feed-content">
-            <div class="feed-top">
-              <div class="feed-top-text">
-                <div class="feed-title">Pehli Baarish, Pehla Pyaar</div>
-                <div class="feed-badge" style="background: rgba(255,80,120,0.16); color: #FF5078; border-color: rgba(255,80,120,0.35);">Romance · 6 episodes</div>
-              </div>
-            </div>
-            <div class="feed-spacer"></div>
-            <div class="feed-bottom">
-              <div class="feed-hook">College ka first monsoon. Ek ladki. Ek shared umbrella. Aur ek decision jo sab kuch badal deta hai.</div>
-              <div class="feed-meta">
-                <span>6 episodes</span>
-                <span class="dot-sep"></span>
-                <span>~11 min</span>
-                <span class="dot-sep"></span>
-                <span>3.7k playing</span>
-              </div>
-              <button class="btn-gold feed-play-btn" style="opacity:0.4; cursor:default; pointer-events:none;">Coming Soon</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Card 3: Raat Ko Phone Aaya -->
-        <div class="feed-card">
-          <div class="feed-fallback" style="background: radial-gradient(ellipse at 50% 30%, rgba(80,160,255,0.18) 0%, transparent 60%), linear-gradient(135deg, #0a0f1a 0%, #08080F 100%);"></div>
-          <img class="feed-bg" src="images/webp/ep4-s1.webp" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">
-          <div class="feed-grad"></div>
-          <div class="feed-content">
-            <div class="feed-top">
-              <div class="feed-top-text">
-                <div class="feed-title">Raat Ko Phone Aaya</div>
-                <div class="feed-badge" style="background: rgba(80,160,255,0.16); color: #50A0FF; border-color: rgba(80,160,255,0.35);">Thriller · 6 episodes</div>
-              </div>
-            </div>
-            <div class="feed-spacer"></div>
-            <div class="feed-bottom">
-              <div class="feed-hook">2 AM. Unknown number. Caller ID: your own name. Aur tu ghar pe akela hai.</div>
-              <div class="feed-meta">
-                <span>6 episodes</span>
-                <span class="dot-sep"></span>
-                <span>~13 min</span>
-                <span class="dot-sep"></span>
-                <span>1.8k playing</span>
-              </div>
-              <button class="btn-gold feed-play-btn" style="opacity:0.4; cursor:default; pointer-events:none;">Coming Soon</button>
-            </div>
-          </div>
-        </div>
-
       </div><!-- .feed-reel -->
       <nav class="bnav">
         <button class="nav-item active" data-tab="feed" onclick="navTo('feed')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></span><span>Feed</span></button>
@@ -2773,11 +2719,11 @@ async function _syncFromDb() {
 }
 
 async function doSignOut() {
-  if (!_supabase) return;
   closeProfileSettings();
-  await _supabase.auth.signOut();
+  try { if (_supabase) await _supabase.auth.signOut(); } catch(e) { /* ignore */ }
   _currentUser = null;
   localStorage.removeItem('katha_display_name');
+  localStorage.removeItem('katha_stories_v1');
   _updateAuthUI();
   navTo('onboard');
 }
