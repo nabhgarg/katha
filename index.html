@@ -2843,20 +2843,13 @@ async function submitOtp() {
 async function submitName() {
   const name = (document.getElementById('name-input')?.value || '').trim();
   if (!name) { document.getElementById('name-input').focus(); return; }
-  const btn = document.getElementById('name-submit-btn');
-  btn.disabled = true; btn.textContent = 'Saving...';
-  try {
-    localStorage.setItem('katha_display_name', name);
-    if (_supabase && _currentUser) {
-      await _supabase.auth.updateUser({ data: { display_name: name } });
-    }
-    _updateAuthUI();
-    navTo('feed');
-  } catch(e) {
-    console.warn('Name save error:', e);
-    navTo('feed');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Start reading →';
+  // Save locally and navigate immediately — don't wait for Supabase
+  localStorage.setItem('katha_display_name', name);
+  _updateAuthUI();
+  navTo('feed');
+  // Update Supabase in background (fire-and-forget)
+  if (_supabase && _currentUser) {
+    _supabase.auth.updateUser({ data: { display_name: name } }).catch(() => {});
   }
 }
 
