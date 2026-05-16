@@ -2621,9 +2621,10 @@ async function saveGeneratedStory(story, creditMap) {
       if (maxKeep === 0) console.warn('localStorage quota exceeded — story saved to DB only');
     }
   }
-  // Embed creator name so public feed can display it without extra joins
-  persistStory._creator = _getDisplayName() || 'Katha User';
-  try { await _saveStoryToDb(persistStory, creditMap); _publicFeedTs = 0; } catch(e) { /* silent — no DB or not logged in */ }
+  // Save to DB with original cover_img (data: URLs are fine in Supabase JSONB — only localStorage has size limits)
+  const dbStory = JSON.parse(JSON.stringify(story));
+  dbStory._creator = _getDisplayName() || 'Katha User';
+  try { await _saveStoryToDb(dbStory, creditMap); _publicFeedTs = 0; } catch(e) { /* silent — no DB or not logged in */ }
 }
 
 function loadSavedStories() {
