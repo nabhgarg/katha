@@ -1701,9 +1701,6 @@
       </div>
     </div>
 
-    <audio id="bgm" loop preload="none">
-      <source src="audio/bg-mythology.mp3" type="audio/mpeg">
-    </audio>
   </div>
 
 <script>
@@ -1909,7 +1906,7 @@ function _getDisplayName() {
 
 /* ---------- AUDIO ---------- */
 function tryStartAudio() {
-  if (ST.audioOn) return;
+  return; // audio removed
   const bgm = document.getElementById('bgm');
   if (!bgm) return;
   try {
@@ -2919,8 +2916,6 @@ window.addEventListener('load', async () => {
   }
 });
 
-// First user tap anywhere starts audio
-document.addEventListener('click', tryStartAudio, { once: true });
 </script>
 </body>
 </html>
