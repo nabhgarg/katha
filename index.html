@@ -865,6 +865,22 @@
     border-radius: 22px;
     font-size: 13px;
   }
+  .settings-block {
+    background: #12121C;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .settings-row { display: flex; justify-content: space-between; align-items: center; }
+  .settings-label { font-size: 14px; color: #FFFFFF; }
+  .settings-value { font-size: 12px; color: #A0A0B8; font-family: monospace; }
+  .settings-edit-btn {
+    font-size: 12px; color: #FFB020; background: none; border: none;
+    padding: 0; cursor: pointer; text-align: left; font-family: inherit; font-weight: 600;
+  }
 
   /* ====================================================
      8. PROFILE
@@ -1231,7 +1247,7 @@
 
     <!-- =================== FEED =================== -->
     <section id="s-feed" class="screen">
-      <div class="feed-reel">
+      <div class="feed-reel" id="feed-reel">
 
         <!-- Card 1: Kashi Ka Khazana -->
         <div class="feed-card">
@@ -1431,17 +1447,16 @@
           </svg>
         </div>
         <div class="gen-title">Your story is being born</div>
-        <div class="gen-badge">✓ Mythology detected!</div>
-        <button class="gen-change" onclick="alert('Genre selector coming soon')">Change genre</button>
+        <div class="gen-badge" id="gen-badge">Analyzing your story...</div>
         <ul class="check-list" id="check-list">
-          <li class="done"><span class="ck">✓</span>Understanding your idea</li>
-          <li class="done"><span class="ck">✓</span>Detecting genre &amp; tone</li>
-          <li class="active"><span class="ck">·</span>Writing 6 episode arcs</li>
+          <li><span class="ck"></span>Building your story world</li>
+          <li><span class="ck"></span>Planning 6 episode arcs</li>
+          <li><span class="ck"></span>Writing all scenes</li>
           <li><span class="ck"></span>Generating scene visuals</li>
-          <li><span class="ck"></span>Composing background score</li>
-          <li><span class="ck"></span>Final polish</li>
+          <li><span class="ck"></span>Putting it all together</li>
         </ul>
-        <div class="gen-eta">Estimated: ~2 minutes</div>
+        <div class="gen-eta" id="gen-eta">Estimated: 3–5 minutes</div>
+        <div class="gen-error" id="gen-error" style="display:none;color:#ff6b6b;text-align:center;padding:12px 24px;font-size:13px;line-height:1.5;"></div>
         <button class="btn-ghost gen-browse" onclick="navTo('feed')">Browse stories meanwhile</button>
       </div>
     </section>
@@ -1460,7 +1475,7 @@
 
         <div class="stats-row">
           <div class="stat-box">
-            <div class="stat-num">0</div>
+            <div class="stat-num" id="stat-created">0</div>
             <div class="stat-label">Created</div>
           </div>
           <div class="stat-box">
@@ -1474,7 +1489,7 @@
         </div>
 
         <div class="section-head">My Stories</div>
-        <div class="grid-2">
+        <div class="grid-2" id="my-stories-grid">
           <button class="empty-card" onclick="navTo('create')">
             <span class="plus">+</span>
             <span class="lbl">Create</span>
@@ -1488,6 +1503,22 @@
             <div class="story-card-grad"></div>
             <div class="story-card-title">Kashi Ka Khazana</div>
           </div>
+        </div>
+
+        <div class="section-head">Settings</div>
+        <div class="settings-block">
+          <div class="settings-row">
+            <span class="settings-label">OpenAI API Key</span>
+            <span class="settings-value" id="apikey-profile-status">Not set</span>
+          </div>
+          <div id="settings-key-wrap" style="display:none;">
+            <input id="apikey-profile-input" type="password" class="ov-phone" placeholder="sk-..." style="font-family:monospace;font-size:12px;letter-spacing:0.3px;width:100%;box-sizing:border-box;margin-bottom:8px;" />
+            <div style="display:flex;gap:8px;">
+              <button class="btn-gold" style="flex:1;height:40px;font-size:13px;" onclick="saveApiKeyFromProfile()">Save key</button>
+              <button class="btn-ghost" style="height:40px;padding:0 16px;font-size:13px;" onclick="clearApiKey()">Clear</button>
+            </div>
+          </div>
+          <button class="settings-edit-btn" onclick="toggleApiKeyInput()">Edit key</button>
         </div>
       </div>
       <nav class="bnav">
@@ -1599,6 +1630,21 @@
         <button class="nav-item active" data-tab="profile" onclick="navTo('profile')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span><span>You</span></button>
       </nav>
     </section>
+
+    <!-- =================== API KEY MODAL =================== -->
+    <div id="apikey-modal" style="display:none;position:fixed;inset:0;z-index:500;">
+      <div class="ov-backdrop" onclick="closeApiKeyModal()"></div>
+      <div class="ov-sheet">
+        <div class="drag-handle"></div>
+        <div class="ov-title">One-time setup<span class="dot">.</span></div>
+        <div class="ov-sub">Enter your OpenAI API key to generate stories with AI. Stored in this session only — never sent to our servers.</div>
+        <div class="ov-phone-row" style="flex-direction:column;gap:8px;">
+          <input id="apikey-input" class="ov-phone" type="password" placeholder="sk-..." style="width:100%;font-family:monospace;font-size:13px;letter-spacing:0.5px;box-sizing:border-box;" />
+        </div>
+        <button class="btn-gold ov-otp" style="margin-top:8px;" onclick="submitApiKey()">Start generating →</button>
+        <button class="ov-skip" onclick="closeApiKeyModal()">Cancel</button>
+      </div>
+    </div>
 
     <!-- =================== SAVE PHONE OVERLAY =================== -->
     <div id="overlay-save">
@@ -1784,6 +1830,10 @@ const CREDIT_MAP = [
   { name: 'THE IDOL',   A: 'came home',                  B: 'stayed where it belonged' }
 ];
 
+/* ---------- ACTIVE STORY (swapped when AI generates) ---------- */
+let CURRENT_STORY = STORY;
+let CURRENT_CREDIT_MAP = CREDIT_MAP;
+
 /* ---------- SCREEN ROUTER ---------- */
 function showScreen(id) {
   // cleanup generating timers if leaving
@@ -1801,11 +1851,12 @@ function showScreen(id) {
 
 function navTo(tab) {
   showScreen(tab);
-  // Update bnav active state across all nav bars
   document.querySelectorAll('.bnav .nav-item').forEach(b => {
     if (b.dataset.tab === tab) b.classList.add('active');
     else b.classList.remove('active');
   });
+  if (tab === 'feed') renderFeedGenerated();
+  if (tab === 'profile') { renderProfileMyStories(); renderProfileApiKey(); }
 }
 
 /* ---------- AUDIO ---------- */
@@ -1833,7 +1884,7 @@ function startStory() {
 }
 
 function currentSceneList() {
-  const ep = STORY.episodes[ST.ep];
+  const ep = CURRENT_STORY.episodes[ST.ep];
   if (!ep) return null;
   if (ep.scenes) return ep.scenes;
   if (ST.branch === 'A' && ep.scenesA) return ep.scenesA;
@@ -1851,9 +1902,9 @@ function renderScene() {
   const img = document.getElementById('scene-img');
   if (img) {
     img.style.animation = 'none';
-    void img.offsetHeight; // force reflow
-    img.src = s.img;
-    img.style.display = '';
+    void img.offsetHeight;
+    if (s.img) { img.src = s.img; img.style.display = ''; }
+    else { img.src = ''; img.style.display = 'none'; }
     img.style.animation = 'kenBurns 8s ease-out forwards';
   }
 
@@ -1868,7 +1919,7 @@ function renderEpDots() {
   const wrap = document.getElementById('ep-dots');
   if (!wrap) return;
   wrap.innerHTML = '';
-  for (let i = 0; i < STORY.episodes.length; i++) {
+  for (let i = 0; i < CURRENT_STORY.episodes.length; i++) {
     const d = document.createElement('div');
     d.className = 'ep-dot';
     if (i < ST.ep) d.classList.add('done');
@@ -1892,7 +1943,7 @@ function renderSceneProgress(total) {
 
 function advanceScene() {
   tryStartAudio();
-  const ep = STORY.episodes[ST.ep];
+  const ep = CURRENT_STORY.episodes[ST.ep];
   const scenes = currentSceneList();
   if (!scenes) return;
 
@@ -1915,7 +1966,7 @@ function advanceScene() {
 
 /* ---------- CHOICE ---------- */
 function renderChoice() {
-  const ep = STORY.episodes[ST.ep];
+  const ep = CURRENT_STORY.episodes[ST.ep];
   if (!ep || !ep.choice) return;
   const c = ep.choice;
   document.getElementById('choice-q').textContent = c.q;
@@ -1960,7 +2011,7 @@ function makeChoice(opt) {
   setTimeout(() => {
     ST.ep++;
     ST.scene = 0;
-    if (ST.ep >= STORY.episodes.length) {
+    if (ST.ep >= CURRENT_STORY.episodes.length) {
       renderEnd();
       showScreen('end');
     } else {
@@ -1975,10 +2026,10 @@ function renderEnd() {
   const wrap = document.getElementById('end-credits');
   if (!wrap) return;
   wrap.innerHTML = '';
-  for (let i = 0; i < CREDIT_MAP.length; i++) {
+  for (let i = 0; i < CURRENT_CREDIT_MAP.length; i++) {
     const opt = ST.choices[i];
     if (!opt) continue;
-    const c = CREDIT_MAP[i];
+    const c = CURRENT_CREDIT_MAP[i];
     const block = document.createElement('div');
     block.className = 'credit-block';
     block.innerHTML =
@@ -2009,11 +2060,11 @@ function shareEnding() {
 }
 
 function buildShareText() {
-  let out = 'I just finished "Kashi Ka Khazana" on Katha.\n\n';
-  for (let i = 0; i < CREDIT_MAP.length; i++) {
+  let out = 'I just finished "' + CURRENT_STORY.title + '" on Katha.\n\n';
+  for (let i = 0; i < CURRENT_CREDIT_MAP.length; i++) {
     const opt = ST.choices[i];
     if (!opt) continue;
-    const c = CREDIT_MAP[i];
+    const c = CURRENT_CREDIT_MAP[i];
     out += c.name + ' — ' + (opt === 'A' ? c.A : c.B) + '\n';
   }
   out += '\nWhat would your story be?';
@@ -2035,66 +2086,469 @@ function useIdea(btn) {
   ta.focus();
 }
 
-/* ---------- GENERATING ---------- */
-let genTimers = [];
+/* ---------- API KEY ---------- */
+function getApiKey() { return sessionStorage.getItem('katha_oai_key') || ''; }
+function setApiKey(key) { sessionStorage.setItem('katha_oai_key', key.trim()); }
 
-function startGenerating() {
-  showScreen('generating');
-  resetGenList();
-
-  // Save phone overlay after 3s
-  genTimers.push(setTimeout(() => {
-    openSave();
-  }, 3000));
-
-  // Step progression every 30s
-  genTimers.push(setInterval(() => {
-    advanceGenStep();
-  }, 30000));
-}
-
-function resetGenList() {
-  const list = document.getElementById('check-list');
-  if (!list) return;
-  const items = list.querySelectorAll('li');
-  items.forEach((li, i) => {
-    li.classList.remove('done', 'active');
-    const ck = li.querySelector('.ck');
-    if (i < 2) {
-      li.classList.add('done');
-      if (ck) ck.textContent = '✓';
-    } else if (i === 2) {
-      li.classList.add('active');
-      if (ck) ck.textContent = '·';
-    } else {
-      if (ck) ck.textContent = '';
-    }
+/* ---------- OAI WRAPPERS ---------- */
+async function oaiChat(messages) {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getApiKey() },
+    body: JSON.stringify({ model: 'gpt-4o-mini', messages, temperature: 0.85, response_format: { type: 'json_object' } })
   });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || 'API error ' + res.status); }
+  const d = await res.json();
+  return JSON.parse(d.choices[0].message.content);
 }
 
-function advanceGenStep() {
+async function oaiImage(prompt) {
+  const res = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getApiKey() },
+    body: JSON.stringify({ model: 'dall-e-3', prompt, size: '1024x1024', quality: 'standard', n: 1 })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || 'DALL-E error ' + res.status); }
+  const d = await res.json();
+  return d.data[0].url;
+}
+
+/* ---------- STYLE PALETTES ---------- */
+const IMG_STYLE = {
+  MYTHOLOGY: {
+    prefix: 'cinematic Indian mythology, dramatic golden hour light shafts, ancient stone and modern city contrast, epic scale, rich amber and deep shadow palette,',
+    suffix: 'photorealistic, cinematic composition, no text, no faces, no watermark, mobile vertical format'
+  },
+  THRILLER: {
+    prefix: 'atmospheric Indian urban noir, harsh sodium streetlights, deep shadows, high contrast, sense of dread, desaturated with one color accent,',
+    suffix: 'photorealistic, cinematic composition, no text, no faces, no watermark, mobile vertical format'
+  },
+  ROMANCE: {
+    prefix: 'warm Indian light, golden hour, soft bokeh background, intimate framing, bittersweet mood, Bollywood-adjacent but grounded,',
+    suffix: 'photorealistic, cinematic composition, no text, no faces, no watermark, mobile vertical format'
+  }
+};
+
+/* ---------- PIPELINE STAGE FUNCTIONS ---------- */
+async function stageBible(userPrompt) {
+  return oaiChat([
+    { role: 'system', content: `You are a story development editor for Indian vernacular fiction.
+Genre options:
+ROMANCE: Class tension, longing, one central obstacle. Modern India setting. Emotional: bittersweet, slow burn.
+THRILLER: One impossible thing that is real. Paranoia escalates each episode. Twist in ep5. Emotional: dread, suspense.
+MYTHOLOGY: Ancient or divine force disrupts a modern person's life. Protagonist is ordinary and reluctant. Emotional: epic, wonder.
+Output JSON only.` },
+    { role: 'user', content: `Story idea: "${userPrompt}"
+
+Output this exact JSON:
+{
+  "genre": "ROMANCE or THRILLER or MYTHOLOGY",
+  "title": "2-4 word story title, can be Hinglish",
+  "city": "one Indian city name",
+  "logline": "one sentence: who is the protagonist, what disrupts their world, what must be resolved",
+  "story_rules": [
+    "permanent fact about protagonist age, location, and status — never changes across episodes",
+    "key plot fact that is established in ep1 and cannot be contradicted later",
+    "one specific world detail unique to this story"
+  ],
+  "protagonist": {
+    "name": "first name only",
+    "age": 24,
+    "wants": "what they consciously want",
+    "hides": "what they don't admit to anyone",
+    "speech_tic": "one phrase describing their spoken style e.g. uses matlab as filler when nervous"
+  },
+  "characters": [
+    {"name": "first name", "role": "love_interest or antagonist or ally or unknown", "one_line": "who they are in one sentence"}
+  ]
+}` }
+  ]);
+}
+
+async function stageArc(bible) {
+  const rules = bible.story_rules.join('\n- ');
+  const chars = (bible.characters || []).map(c => `${c.name} (${c.role}): ${c.one_line}`).join('\n');
+  return oaiChat([
+    { role: 'system', content: `You are planning a 6-episode interactive story for Indian mobile audiences.
+Story rules (never violate):
+- ${rules}
+Protagonist: ${bible.protagonist.name}, age ${bible.protagonist.age}. Wants: ${bible.protagonist.wants}. Hides: ${bible.protagonist.hides}.
+Other characters: ${chars}
+Logline: ${bible.logline}
+Output JSON only.` },
+    { role: 'user', content: `Plan all 6 episodes. Design ep1 cliffhanger LAST after knowing the full story shape — it must be the strongest.
+
+Episode roles:
+Ep1 HOOK: Open mid-action, no backstory. By scene 3: revelation that recontextualizes everything. Cliffhanger = a BURNING QUESTION.
+Ep2 ESCALATION: Ep1 problem is bigger than it looked. Choice consequence is visible.
+Ep3 COMPLICATION: New info changes everything. Protagonist makes reasonable but wrong decision.
+Ep4 ALL IS LOST: Lowest point. Something valued is gone. Choice feels like loss either way.
+Ep5 THE TURN: Most meaningful fork. One option safe but hollow, other risky but true. User must feel genuine uncertainty.
+Ep6 RESOLUTION: No choice. 3 scenes close the story. Must echo an image or line from ep1.
+
+Output JSON:
+{
+  "episodes": [
+    {
+      "number": 1,
+      "title": "2-3 words, can be Hindi",
+      "scene_jobs": ["scene 1: what happens, one sentence", "scene 2: what happens", "scene 3: revelation that recontextualizes everything"],
+      "cliffhanger": "exact text shown to user — must be a question or impossible juxtaposition, never just an event",
+      "choice_q": "question shown to user",
+      "choice_a": {"label": "3-5 words", "sub": "cost or implication, one sentence"},
+      "choice_b": {"label": "3-5 words", "sub": "cost or implication, one sentence"}
+    },
+    { "number": 2, "title": "...", "scene_jobs": ["...","...","..."], "cliffhanger": "...", "choice_q": "...", "choice_a": {"label":"...","sub":"..."}, "choice_b": {"label":"...","sub":"..."} },
+    { "number": 3, "title": "...", "scene_jobs": ["...","...","..."], "cliffhanger": "...", "choice_q": "...", "choice_a": {"label":"...","sub":"..."}, "choice_b": {"label":"...","sub":"..."} },
+    { "number": 4, "title": "...", "scene_jobs": ["...","...","..."], "cliffhanger": "...", "choice_q": "...", "choice_a": {"label":"...","sub":"..."}, "choice_b": {"label":"...","sub":"..."} },
+    { "number": 5, "title": "...", "scene_jobs": ["...","...","..."], "cliffhanger": "...", "choice_q": "...", "choice_a": {"label":"...","sub":"..."}, "choice_b": {"label":"...","sub":"..."} },
+    { "number": 6, "title": "...", "scene_jobs": ["scene 1","scene 2","scene 3 — must echo ep1"] }
+  ]
+}
+
+Rules: choice A and B must feel morally opposite. Neither is obviously correct.` }
+  ]);
+}
+
+async function stageScenes(bible, epPlan, prevLastLine, epNum) {
+  const style = IMG_STYLE[bible.genre] || IMG_STYLE.MYTHOLOGY;
+  const sceneJobs = epPlan.scene_jobs || ['open the scene', 'develop the action', 'conclude the episode'];
+  const prevText = prevLastLine ? `Previous scene ended with: "${prevLastLine}"` : 'This is the very first scene of the story — open in the middle of something already happening.';
+  const cliffText = epPlan.cliffhanger ? `This episode must build toward and end with: "${epPlan.cliffhanger}"` : 'This is the final episode — close the story with earned resolution.';
+  return oaiChat([
+    { role: 'system', content: `You are writing 3 scenes for episode ${epNum} of an Indian interactive story.
+Genre: ${bible.genre} | City: ${bible.city}
+Story rules: ${bible.story_rules.join(' | ')}
+Protagonist speech tic: ${bible.protagonist.speech_tic}
+${cliffText}
+${prevText}
+Output JSON only.` },
+    { role: 'user', content: `Scene jobs:
+1. ${sceneJobs[0]}
+2. ${sceneJobs[1]}
+3. ${sceneJobs[2]}
+
+Write all 3 scenes. For each scene output:
+- hl: Hinglish emotional peak, 10-15 words, natural spoken, NOT a summary, mix Hindi+English organically. Use protagonist speech tic when they're the focus.
+- body: English narration, 2-4 sentences, one concrete sensory detail (smell/sound/texture/temperature), no adverbs, last sentence escalates or makes next scene inevitable.
+- img_prompt: Start with "${style.prefix}" then describe the cinematic visual of this scene (lighting, time of day, key foreground element, Indian setting/location if named). End with "${style.suffix}". Max 60 words. No character faces.
+
+Output JSON:
+{
+  "scenes": [
+    {"hl": "...", "body": "...", "img_prompt": "..."},
+    {"hl": "...", "body": "...", "img_prompt": "..."},
+    {"hl": "...", "body": "...", "img_prompt": "..."}
+  ]
+}` }
+  ]);
+}
+
+/* ---------- CHECKLIST HELPERS ---------- */
+const GEN_STEP_LABELS = [
+  'Building your story world',
+  'Planning 6 episode arcs',
+  'Writing all scenes',
+  'Generating scene visuals',
+  'Putting it all together'
+];
+
+function initGenList() {
+  const list = document.getElementById('check-list');
+  if (!list) return;
+  list.innerHTML = GEN_STEP_LABELS.map(s => `<li><span class="ck"></span>${s}</li>`).join('');
+}
+
+function setGenItem(idx, state) {
   const list = document.getElementById('check-list');
   if (!list) return;
   const items = list.querySelectorAll('li');
-  let activeIdx = -1;
-  items.forEach((li, i) => { if (li.classList.contains('active')) activeIdx = i; });
-  if (activeIdx === -1 || activeIdx >= items.length - 1) return;
-  const cur = items[activeIdx];
-  cur.classList.remove('active');
-  cur.classList.add('done');
-  const ck = cur.querySelector('.ck');
-  if (ck) ck.textContent = '✓';
-  const next = items[activeIdx + 1];
-  if (next) {
-    next.classList.add('active');
-    const ck2 = next.querySelector('.ck');
-    if (ck2) ck2.textContent = '·';
+  if (!items[idx]) return;
+  const li = items[idx], ck = li.querySelector('.ck');
+  if (state === 'active') { li.classList.add('active'); if (ck) ck.textContent = '·'; }
+  else if (state === 'done') { li.classList.remove('active'); li.classList.add('done'); if (ck) ck.textContent = '✓'; }
+}
+
+function setGenBadge(text) {
+  const el = document.getElementById('gen-badge'); if (el) el.textContent = text;
+}
+function setGenEta(text) {
+  const el = document.getElementById('gen-eta'); if (el) el.textContent = text;
+}
+function showGenError(msg) {
+  const el = document.getElementById('gen-error');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+  setGenEta('');
+}
+
+/* ---------- STORY ASSEMBLY ---------- */
+function assembleStory(bible, arc, episodeScenes) {
+  const eps = arc.episodes || [];
+  const episodes = eps.map((epPlan, i) => {
+    const scenes = (episodeScenes[i]?.scenes || []).map(s => ({ img: s.img || '', hl: s.hl, body: s.body }));
+    const isLast = i === eps.length - 1;
+    if (isLast) {
+      return { title: epPlan.title || 'Ek Ant', scenesA: scenes, scenesB: scenes };
+    }
+    const lastImg = scenes[scenes.length - 1]?.img || '';
+    return {
+      title: epPlan.title || ('Episode ' + (i + 1)),
+      scenes,
+      choice: {
+        q: epPlan.choice_q || 'What does the protagonist do?',
+        A: { text: epPlan.choice_a?.label || 'Option A', sub: epPlan.choice_a?.sub || '', img: lastImg },
+        B: { text: epPlan.choice_b?.label || 'Option B', sub: epPlan.choice_b?.sub || '', img: lastImg }
+      }
+    };
+  });
+  return { title: bible.title, genre: bible.genre, episodes };
+}
+
+function assembleCredits(arc, bible) {
+  const eps = arc.episodes || [];
+  const map = [];
+  for (let i = 0; i < Math.min(eps.length - 1, 5); i++) {
+    const ep = eps[i];
+    if (!ep.choice_a) continue;
+    const label = i === 0 ? bible.protagonist.name.toUpperCase() : ep.title.toUpperCase();
+    map.push({ name: label, A: ep.choice_a.sub || ep.choice_a.label, B: ep.choice_b?.sub || ep.choice_b?.label || '' });
+  }
+  return map;
+}
+
+/* ---------- PIPELINE ---------- */
+async function runPipeline(userPrompt) {
+  initGenList();
+  document.getElementById('gen-error').style.display = 'none';
+
+  try {
+    // Stage 1+2: Genre + Bible
+    setGenItem(0, 'active');
+    setGenEta('Estimated: 3–5 minutes');
+    const bible = await stageBible(userPrompt);
+    setGenItem(0, 'done');
+    const genLabel = bible.genre.charAt(0) + bible.genre.slice(1).toLowerCase();
+    setGenBadge('✓ ' + genLabel + ' detected!');
+
+    // Stage 3: Arc Planner
+    setGenItem(1, 'active');
+    const arcData = await stageArc(bible);
+    const arc = arcData.episodes ? arcData : { episodes: Object.values(arcData)[0] || [] };
+    setGenItem(1, 'done');
+
+    // Stage 4+5: Scenes per episode (sequential for daisy-chain continuity)
+    setGenItem(2, 'active');
+    setGenEta('Writing 6 episodes...');
+    const episodeScenes = [];
+    let prevLastLine = '';
+    for (let i = 0; i < arc.episodes.length; i++) {
+      setGenEta(`Writing episode ${i + 1} of ${arc.episodes.length}...`);
+      const result = await stageScenes(bible, arc.episodes[i], prevLastLine, i + 1);
+      episodeScenes.push(result);
+      const lastScene = result.scenes[result.scenes.length - 1];
+      if (lastScene?.body) {
+        const sentences = lastScene.body.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+        prevLastLine = sentences[sentences.length - 1] || '';
+      }
+    }
+    setGenItem(2, 'done');
+
+    // Stage 6: Image generation — sequential with retry on rate limits
+    setGenItem(3, 'active');
+    const allSceneRefs = episodeScenes.flatMap(ep => ep.scenes || []);
+    for (let i = 0; i < allSceneRefs.length; i++) {
+      const sc = allSceneRefs[i];
+      setGenEta(`Generating image ${i + 1} of ${allSceneRefs.length}...`);
+      if (!sc.img_prompt) { sc.img = ''; continue; }
+      let imgUrl = '';
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try { imgUrl = await oaiImage(sc.img_prompt); break; }
+        catch (e) {
+          const rateLimit = e.message.includes('429') || e.message.toLowerCase().includes('rate');
+          if (attempt < 2 && rateLimit) {
+            setGenEta(`Rate limit — retrying image ${i + 1} in 30s...`);
+            await new Promise(r => setTimeout(r, 30000));
+          } else { console.warn('Image', i + 1, 'failed:', e.message); break; }
+        }
+      }
+      sc.img = imgUrl;
+    }
+    setGenItem(3, 'done');
+
+    // Assembly
+    setGenItem(4, 'active');
+    CURRENT_STORY = assembleStory(bible, arc, episodeScenes);
+    CURRENT_CREDIT_MAP = assembleCredits(arc, bible);
+    saveGeneratedStory(CURRENT_STORY, CURRENT_CREDIT_MAP);
+    setGenItem(4, 'done');
+    setGenEta('Your Katha is ready!');
+    setGenBadge('✓ ' + CURRENT_STORY.title);
+
+    setTimeout(() => { startStory(); }, 1800);
+
+  } catch (err) {
+    console.error('Pipeline error:', err);
+    showGenError('Something went wrong: ' + (err.message || 'unknown error') + '. Check your API key and try again.');
   }
 }
 
+/* ---------- GENERATING SCREEN ---------- */
+let genTimers = [];
 function clearGenTimers() {
   genTimers.forEach(t => { clearTimeout(t); clearInterval(t); });
   genTimers = [];
+}
+
+/* ---------- STORY STORAGE ---------- */
+const STORIES_KEY = 'katha_stories_v1';
+
+function saveGeneratedStory(story, creditMap) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORIES_KEY) || '[]');
+    saved.unshift({ id: Date.now(), story, creditMap, createdAt: Date.now() });
+    if (saved.length > 5) saved.length = 5;
+    localStorage.setItem(STORIES_KEY, JSON.stringify(saved));
+  } catch(e) { console.warn('Save failed:', e); }
+}
+
+function loadSavedStories() {
+  try { return JSON.parse(localStorage.getItem(STORIES_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+
+function playSavedStory(id) {
+  const entry = loadSavedStories().find(s => s.id === id);
+  if (!entry) return;
+  CURRENT_STORY = entry.story;
+  CURRENT_CREDIT_MAP = entry.creditMap || CREDIT_MAP;
+  startStory();
+}
+
+/* ---------- FEED + PROFILE REFRESH ---------- */
+const GENRE_COLORS = {
+  MYTHOLOGY: { bg:'rgba(255,176,32,0.16)', color:'#FFB020', border:'rgba(255,176,32,0.35)', fallback:'radial-gradient(ellipse at 40% 30%, rgba(255,176,32,0.22) 0%, transparent 60%), linear-gradient(135deg, #1a1200 0%, #08080F 100%)' },
+  ROMANCE:   { bg:'rgba(255,80,120,0.16)',  color:'#FF5078', border:'rgba(255,80,120,0.35)',  fallback:'radial-gradient(ellipse at 40% 50%, rgba(255,80,120,0.22) 0%, transparent 60%), linear-gradient(135deg, #1a0f15 0%, #08080F 100%)' },
+  THRILLER:  { bg:'rgba(80,160,255,0.16)',  color:'#50A0FF', border:'rgba(80,160,255,0.35)',  fallback:'radial-gradient(ellipse at 50% 30%, rgba(80,160,255,0.18) 0%, transparent 60%), linear-gradient(135deg, #0a0f1a 0%, #08080F 100%)' }
+};
+
+function renderFeedGenerated() {
+  const reel = document.getElementById('feed-reel');
+  if (!reel) return;
+  reel.querySelectorAll('.feed-card.generated').forEach(c => c.remove());
+  loadSavedStories().forEach(entry => {
+    const s = entry.story;
+    const gc = GENRE_COLORS[s.genre] || GENRE_COLORS.MYTHOLOGY;
+    const firstImg = s.episodes?.[0]?.scenes?.[0]?.img || '';
+    const genreLabel = s.genre ? (s.genre.charAt(0) + s.genre.slice(1).toLowerCase()) : 'Story';
+    const card = document.createElement('div');
+    card.className = 'feed-card generated';
+    card.innerHTML =
+      '<div class="feed-fallback" style="background:' + gc.fallback + ';"></div>' +
+      (firstImg ? '<img class="feed-bg" src="' + firstImg + '" alt="" onerror="this.style.display=\'none\'">' : '') +
+      '<div class="feed-grad"></div>' +
+      '<div class="feed-content">' +
+        '<div class="feed-top"><div class="feed-top-text">' +
+          '<div class="feed-title">' + s.title + '</div>' +
+          '<div class="feed-badge" style="background:' + gc.bg + ';color:' + gc.color + ';border-color:' + gc.border + ';">' + genreLabel + ' · 6 episodes</div>' +
+        '</div></div>' +
+        '<div class="feed-spacer"></div>' +
+        '<div class="feed-bottom">' +
+          '<div class="feed-hook">' + (s.episodes?.[0]?.scenes?.[0]?.body || '') + '</div>' +
+          '<div class="feed-meta"><span>6 episodes</span><span class="dot-sep"></span><span>AI generated</span></div>' +
+          '<button class="btn-gold feed-play-btn" onclick="playSavedStory(' + entry.id + ')">&#9654; Play Episode 1</button>' +
+        '</div>' +
+      '</div>';
+    reel.insertBefore(card, reel.firstChild);
+  });
+}
+
+function renderProfileMyStories() {
+  const grid = document.getElementById('my-stories-grid');
+  if (!grid) return;
+  const createBtn = grid.querySelector('.empty-card');
+  grid.innerHTML = '';
+  const stories = loadSavedStories();
+  stories.forEach(entry => {
+    const s = entry.story;
+    const firstImg = s.episodes?.[0]?.scenes?.[0]?.img || '';
+    const card = document.createElement('div');
+    card.className = 'story-card';
+    card.setAttribute('onclick', 'playSavedStory(' + entry.id + ')');
+    card.innerHTML =
+      (firstImg ? '<img class="story-card-img" src="' + firstImg + '" alt="" onerror="this.style.display=\'none\'">' : '') +
+      '<div class="story-card-grad"></div>' +
+      '<div class="story-card-title">' + s.title + '</div>';
+    grid.appendChild(card);
+  });
+  if (createBtn) grid.appendChild(createBtn);
+  const statEl = document.getElementById('stat-created');
+  if (statEl) statEl.textContent = stories.length;
+}
+
+function renderProfileApiKey() {
+  const el = document.getElementById('apikey-profile-status');
+  if (!el) return;
+  const key = getApiKey();
+  el.textContent = key ? '✓ Set (' + key.slice(0, 8) + '...)' : 'Not set';
+  el.style.color = key ? '#4CAF50' : '#A0A0B8';
+}
+
+function startGenerating() {
+  const prompt = (document.getElementById('story-prompt')?.value || '').trim();
+  if (!prompt) { alert('Please describe your story idea first!'); return; }
+
+  const key = getApiKey();
+  if (!key) { showApiKeyModal(prompt); return; }
+
+  showScreen('generating');
+  runPipeline(prompt);
+}
+
+/* ---------- API KEY MODAL ---------- */
+let _pendingPrompt = '';
+
+function showApiKeyModal(prompt) {
+  _pendingPrompt = prompt;
+  document.getElementById('apikey-modal').style.display = 'block';
+}
+function closeApiKeyModal() {
+  document.getElementById('apikey-modal').style.display = 'none';
+}
+function submitApiKey() {
+  const input = document.getElementById('apikey-input');
+  const key = (input?.value || '').trim();
+  if (!key.startsWith('sk-')) { alert('Please enter a valid OpenAI API key (starts with sk-)'); return; }
+  setApiKey(key);
+  closeApiKeyModal();
+  showScreen('generating');
+  runPipeline(_pendingPrompt);
+}
+
+/* ---------- API KEY PROFILE ---------- */
+function toggleApiKeyInput() {
+  const wrap = document.getElementById('settings-key-wrap');
+  if (!wrap) return;
+  const visible = wrap.style.display !== 'none';
+  wrap.style.display = visible ? 'none' : 'block';
+  if (!visible) {
+    const inp = document.getElementById('apikey-profile-input');
+    if (inp) { inp.value = getApiKey(); inp.focus(); }
+  }
+}
+function saveApiKeyFromProfile() {
+  const inp = document.getElementById('apikey-profile-input');
+  const key = (inp?.value || '').trim();
+  if (!key.startsWith('sk-')) { alert('Key must start with sk-'); return; }
+  setApiKey(key);
+  document.getElementById('settings-key-wrap').style.display = 'none';
+  renderProfileApiKey();
+}
+function clearApiKey() {
+  sessionStorage.removeItem('katha_oai_key');
+  const inp = document.getElementById('apikey-profile-input');
+  if (inp) inp.value = '';
+  document.getElementById('settings-key-wrap').style.display = 'none';
+  renderProfileApiKey();
 }
 
 /* ---------- SAVE OVERLAY ---------- */
@@ -2107,7 +2561,9 @@ function closeSave() {
 
 /* ---------- INIT ---------- */
 window.addEventListener('load', () => {
-  // Splash auto-advance after 2500ms
+  renderFeedGenerated();
+  renderProfileMyStories();
+  renderProfileApiKey();
   setTimeout(() => {
     const splash = document.getElementById('s-splash');
     if (splash && splash.classList.contains('active')) {
