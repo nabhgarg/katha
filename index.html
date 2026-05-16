@@ -2004,6 +2004,15 @@ function makeChoice(opt) {
 
 /* ---------- END / CREDITS ---------- */
 function renderEnd() {
+  // Update title and genre from current story
+  if (CURRENT_STORY) {
+    const titleEl = document.querySelector('.end-title');
+    const genreEl = document.querySelector('.end-genre');
+    if (titleEl) titleEl.textContent = CURRENT_STORY.title || '';
+    if (genreEl) genreEl.textContent = CURRENT_STORY.genre
+      ? CURRENT_STORY.genre.charAt(0) + CURRENT_STORY.genre.slice(1).toLowerCase()
+      : '';
+  }
   const wrap = document.getElementById('end-credits');
   if (!wrap) return;
   wrap.innerHTML = '';
@@ -2674,7 +2683,7 @@ let _publicFeedTs = 0;
 async function loadPublicFeed() {
   if (!_supabase) return;
   const now = Date.now();
-  if (now - _publicFeedTs < 30000) return; // cache 30s
+  if (now - _publicFeedTs < 5000) return; // debounce 5s only
   const reel = document.getElementById('feed-reel');
   const loadingEl = document.getElementById('feed-loading');
   const emptyEl = document.getElementById('feed-empty');
@@ -2699,9 +2708,12 @@ async function loadPublicFeed() {
     if (emptyEl) emptyEl.style.display = 'none';
     // Remove previously inserted public cards
     reel.querySelectorAll('.feed-card.public').forEach(c => c.remove());
+    // Track local story titles to avoid duplicate cards
+    const localTitles = new Set(loadSavedStories().map(e => e.story?.title).filter(Boolean));
     data.forEach(row => {
       const s = row.story_data;
       if (!s?.title || !s?.genre) return;
+      if (localTitles.has(s.title)) return; // already shown as local card
       const gc = GENRE_COLORS[s.genre?.toUpperCase()] || GENRE_COLORS.MYTHOLOGY;
       const firstImg = s.cover_img || s.episodes?.[0]?.scenes?.[0]?.img || '';
       const genreLabel = s.genre ? (s.genre.charAt(0) + s.genre.slice(1).toLowerCase()) : 'Story';
@@ -2720,7 +2732,7 @@ async function loadPublicFeed() {
           '</div></div>' +
           '<div class="feed-spacer"></div>' +
           '<div class="feed-bottom">' +
-            '<div class="feed-hook">' + _esc(s.episodes?.[0]?.scenes?.[0]?.text || '') + '</div>' +
+            '<div class="feed-hook">' + _esc(s.episodes?.[0]?.scenes?.[0]?.narrator || s.episodes?.[0]?.scenes?.[0]?.text || '') + '</div>' +
             '<div class="feed-meta"><span>By ' + _esc(creator) + '</span><span class="dot-sep"></span><span>AI generated</span></div>' +
             '<button class="btn-gold feed-play-btn" onclick="playPublicStory(' + rowId + ')">&#9654; Play Episode 1</button>' +
           '</div>' +
@@ -2737,12 +2749,13 @@ let _exploreTs = 0;
 async function loadExploreGrid() {
   if (!_supabase) return;
   const now = Date.now();
-  if (now - _exploreTs < 30000) return;
+  if (now - _exploreTs < 5000) return;
   const grid = document.getElementById('explore-grid');
   const loadingEl = document.getElementById('explore-loading');
   const emptyEl = document.getElementById('explore-empty');
   if (!grid) return;
-  if (loadingEl) loadingEl.style.display = 'block';
+  // Only show loading spinner if grid is empty (first load)
+  if (loadingEl) loadingEl.style.display = grid.children.length === 0 ? 'block' : 'none';
   if (emptyEl) emptyEl.style.display = 'none';
   try {
     const { data, error } = await _supabase
