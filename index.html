@@ -1520,15 +1520,6 @@
           </div>
         </div>
 
-        <div class="section-head">Database</div>
-        <div class="settings-block">
-          <div class="settings-row">
-            <span class="settings-label">Supabase</span>
-            <span class="settings-value" id="db-connection-status">Not connected</span>
-          </div>
-          <button class="settings-edit-btn" onclick="openDbSetup()">Connect free database →</button>
-        </div>
-
         <div class="section-head">Settings</div>
         <div class="settings-block">
           <div class="settings-row">
@@ -1674,22 +1665,6 @@
           <div class="ov-sub">We sent a magic link. Click it to sign in — it works only once. You can close this.</div>
           <button class="btn-gold ov-otp" style="margin-top:8px;" onclick="closeLoginModal()">Got it →</button>
         </div>
-      </div>
-    </div>
-
-    <!-- =================== DB SETUP MODAL =================== -->
-    <div id="db-setup-modal" style="display:none;position:fixed;inset:0;z-index:500;">
-      <div class="ov-backdrop" onclick="closeDbSetup()"></div>
-      <div class="ov-sheet">
-        <div class="drag-handle"></div>
-        <div class="ov-title">Connect database<span class="dot">.</span></div>
-        <div class="ov-sub">Get a free Supabase project in 3 minutes: <strong style="color:#fff;">supabase.com → New Project → Settings → API</strong>. Paste the URL and Anon Key below.</div>
-        <div class="ov-phone-row" style="flex-direction:column;gap:8px;">
-          <input id="sb-url-input" type="url" class="ov-phone" placeholder="https://xxxx.supabase.co" style="width:100%;box-sizing:border-box;font-size:13px;" />
-          <input id="sb-key-input" type="password" class="ov-phone" placeholder="Anon Key (eyJhbGci...)" style="width:100%;box-sizing:border-box;font-size:12px;font-family:monospace;" />
-        </div>
-        <button class="btn-gold ov-otp" style="margin-top:8px;" onclick="submitDbCredentials()">Connect →</button>
-        <button class="ov-skip" onclick="closeDbSetup()">Cancel</button>
       </div>
     </div>
 
@@ -2634,15 +2609,13 @@ function submitApiKey() {
 let _supabase = null;
 let _currentUser = null;
 
-function _getDbCreds() {
-  return { url: localStorage.getItem('katha_sb_url') || '', key: localStorage.getItem('katha_sb_anon') || '' };
-}
+const _SB_URL = 'https://vxpiktpczpnwbxzrlrfv.supabase.co';
+const _SB_KEY = 'sb_publishable_7AHJ_aL1DchcUjk9_0KiNQ_zewZxlbr';
 
 function initSupabase() {
-  const { url, key } = _getDbCreds();
-  if (!url || !key || !window.supabase) return false;
+  if (!window.supabase) return false;
   try {
-    _supabase = window.supabase.createClient(url, key);
+    _supabase = window.supabase.createClient(_SB_URL, _SB_KEY);
     _supabase.auth.onAuthStateChange(async (event, session) => {
       _currentUser = session?.user || null;
       _updateAuthUI();
@@ -2663,10 +2636,9 @@ function _updateAuthUI() {
 
 function updateDbStatusUI() {
   const el = document.getElementById('db-connection-status');
-  const { url } = _getDbCreds();
   if (!el) return;
-  el.textContent = url ? '✓ Connected' : 'Not connected';
-  el.style.color = url ? '#4CAF50' : '#A0A0B8';
+  el.textContent = '✓ Connected';
+  el.style.color = '#4CAF50';
 }
 
 async function _saveStoryToDb(story, creditMap) {
@@ -2694,7 +2666,7 @@ async function _syncFromDb() {
 }
 
 async function signInWithEmail(email) {
-  if (!_supabase) { openDbSetup(); return; }
+  if (!_supabase) { alert('Database not loaded yet, please wait a moment and try again.'); return; }
   const { error } = await _supabase.auth.signInWithOtp({
     email,
     options: { emailRedirectTo: window.location.href.split('#')[0].split('?')[0] }
@@ -2709,26 +2681,9 @@ async function doSignOut() {
   _updateAuthUI();
 }
 
-/* ---------- DB SETUP MODAL ---------- */
-function openDbSetup() { document.getElementById('db-setup-modal').style.display = 'block'; }
-function closeDbSetup() { document.getElementById('db-setup-modal').style.display = 'none'; }
-function submitDbCredentials() {
-  const url = (document.getElementById('sb-url-input')?.value || '').trim();
-  const key = (document.getElementById('sb-key-input')?.value || '').trim();
-  if (!url || !key) { alert('Please fill in both fields'); return; }
-  if (!url.includes('supabase')) { alert('Enter a valid Supabase project URL'); return; }
-  localStorage.setItem('katha_sb_url', url);
-  localStorage.setItem('katha_sb_anon', key);
-  initSupabase();
-  updateDbStatusUI();
-  closeDbSetup();
-  alert('Database connected! Now sign in with your email to sync stories.');
-  openLoginModal();
-}
-
 /* ---------- LOGIN MODAL ---------- */
 function openLoginModal() {
-  if (!_supabase) { openDbSetup(); return; }
+  if (!_supabase) { alert('Database not ready yet. Please wait a moment.'); return; }
   document.getElementById('login-modal').style.display = 'block';
   document.getElementById('login-form').style.display = 'block';
   document.getElementById('login-sent').style.display = 'none';
