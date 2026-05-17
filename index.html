@@ -2434,6 +2434,9 @@ async function runPipeline(userPrompt) {
   document.getElementById('gen-error').style.display = 'none';
   showGeneratingCard();
 
+  // Pre-warm: refresh auth session before the long pipeline wait so token doesn't expire mid-flight
+  if (_supabase) { try { await _supabase.auth.getSession(); } catch(e) {} }
+
   try {
     // Stage 1: Bible (gpt-4o)
     setGenItem(0, 'active');
@@ -2511,7 +2514,7 @@ async function runPipeline(userPrompt) {
     setGenItem(4, 'active');
     CURRENT_STORY = assembleStory(bible, arc, episodeScenes, coverImg);
     CURRENT_CREDIT_MAP = assembleCredits(arc, bible);
-    saveGeneratedStory(CURRENT_STORY, CURRENT_CREDIT_MAP);
+    await saveGeneratedStory(CURRENT_STORY, CURRENT_CREDIT_MAP);
     setGenItem(4, 'done');
     setGenEta('Your Katha is ready!');
     setGenBadge('✓ ' + CURRENT_STORY.title);
@@ -2637,7 +2640,13 @@ async function saveGeneratedStory(story, creditMap) {
     const url = await _uploadCoverToStorage(dbStory.cover_img);
     dbStory.cover_img = url || ''; // if Storage upload fails, strip base64 to avoid oversized payload
   }
-  try { await _saveStoryToDb(dbStory, creditMap); _storiesCacheClear(); } catch(e) { console.warn('DB save failed:', e.message); }
+  try {
+    await _saveStoryToDb(dbStory, creditMap);
+    _storiesCacheClear();
+  } catch(e) {
+    console.warn('DB save failed:', e.message);
+    showToast('⚠ Story saved locally but not synced — ' + (e.message || 'try signing in again'));
+  }
 }
 
 function loadSavedStories() {
@@ -3064,8 +3073,17 @@ async function _uploadCoverToStorage(dataUrl) {
 }
 
 async function _saveStoryToDb(story, creditMap) {
-  if (!_supabase || !_currentUser) return;
-  const { error } = await _supabase.from('stories').insert({ user_id: _currentUser.id, story_data: story, credit_map: creditMap });
+  if (!_supabase) throw new Error('Supabase not initialized');
+  const { data: { session } } = await _supabase.auth.getSession();
+  const userId = session?.user?.id || _currentUser?.id;
+  if (!userId) throw new Error('No active session — please sign in again');
+  // Size guardrail: strip any base64 that slipped through (cover_img + scene img + choice img)
+  const safe = JSON.parse(JSON.stringify(story));
+  const stripBase64 = (o) => { if (o && typeof o === 'object') { for (const k in o) { if (typeof o[k]==='string' && o[k].startsWith('data:')) o[k]=''; else if (typeof o[k]==='object') stripBase64(o[k]); } } };
+  stripBase64(safe);
+  const payloadLen = JSON.stringify(safe).length;
+  if (payloadLen > 500000) throw new Error('Story payload too large: ' + payloadLen + ' bytes');
+  const { error } = await _supabase.from('stories').insert({ user_id: userId, story_data: safe, credit_map: creditMap });
   if (error) throw new Error(error.message);
 }
 
