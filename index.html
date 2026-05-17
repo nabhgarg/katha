@@ -1788,7 +1788,7 @@ function navTo(tab) {
     if (b.dataset.tab === tab) b.classList.add('active');
     else b.classList.remove('active');
   });
-  if (tab === 'feed') { renderFeedGenerated(); loadPublicFeed(); }
+  if (tab === 'feed') { loadPublicFeed(); }
   if (tab === 'explore') { loadExploreGrid(); }
   if (tab === 'profile') { renderProfileMyStories(); renderProfilePlayed(); renderProfileHead(); _updateAuthUI(); updateDbStatusUI(); }
 }
@@ -2714,12 +2714,9 @@ async function loadPublicFeed() {
     if (emptyEl) emptyEl.style.display = 'none';
     // Remove previously inserted public cards
     reel.querySelectorAll('.feed-card.public').forEach(c => c.remove());
-    // Track local story titles to avoid duplicate cards
-    const localTitles = new Set(loadSavedStories().map(e => e.story?.title).filter(Boolean));
     data.forEach(row => {
       const s = row.story_data;
       if (!s?.title || !s?.genre) return;
-      if (localTitles.has(s.title)) return; // already shown as local card
       const gc = GENRE_COLORS[s.genre?.toUpperCase()] || GENRE_COLORS.MYTHOLOGY;
       const firstImg = s.cover_img || s.episodes?.[0]?.scenes?.[0]?.img || '';
       const genreLabel = s.genre ? (s.genre.charAt(0) + s.genre.slice(1).toLowerCase()) : 'Story';
