@@ -2638,7 +2638,7 @@ async function saveGeneratedStory(story, creditMap) {
     if (url) dbStory.cover_img = url;
     // else keep data: URL as fallback (large but workable)
   }
-  try { await _saveStoryToDb(dbStory, creditMap); _publicFeedTs = 0; } catch(e) { /* silent — no DB or not logged in */ }
+  try { await _saveStoryToDb(dbStory, creditMap); _storiesCacheClear(); } catch(e) { /* silent — no DB or not logged in */ }
 }
 
 function loadSavedStories() {
@@ -2694,134 +2694,196 @@ function renderFeedGenerated() {
   });
 }
 
+/* ---------- SHARED STORIES CACHE ---------- */
+let _storiesData = null;       // in-memory cache
+let _storiesFetchTs = 0;       // when we last fetched from DB
+let _storiesFetching = null;   // in-flight promise dedup
+
+const _STORIES_CACHE_KEY = 'katha_stories_cache_v1';
+const _STORIES_TTL = 30000; // 30s before background refresh
+
+function _storiesCacheLoad() {
+  try {
+    const raw = sessionStorage.getItem(_STORIES_CACHE_KEY);
+    if (raw) { const p = JSON.parse(raw); if (p?.rows?.length) return p; }
+  } catch(e) {}
+  return null;
+}
+function _storiesCacheSave(rows) {
+  try { sessionStorage.setItem(_STORIES_CACHE_KEY, JSON.stringify({ ts: Date.now(), rows })); } catch(e) {}
+}
+function _storiesCacheClear() {
+  _storiesData = null; _storiesFetchTs = 0;
+  try { sessionStorage.removeItem(_STORIES_CACHE_KEY); } catch(e) {}
+}
+
+async function _fetchStories() {
+  // Return in-memory data immediately if fresh enough
+  if (_storiesData && Date.now() - _storiesFetchTs < _STORIES_TTL) return _storiesData;
+  // Dedup: if a fetch is already in flight, wait for it
+  if (_storiesFetching) return _storiesFetching;
+  _storiesFetching = (async () => {
+    try {
+      const { data, error } = await _supabase
+        .from('stories')
+        .select('id, story_data, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (!error && data?.length) {
+        _storiesData = data;
+        _storiesFetchTs = Date.now();
+        _storiesCacheSave(data);
+      }
+      return _storiesData;
+    } catch(e) {
+      console.warn('Stories fetch error:', e);
+      return _storiesData; // return stale data if any
+    } finally {
+      _storiesFetching = null;
+    }
+  })();
+  return _storiesFetching;
+}
+
+/* ---- render helpers ---- */
+function _renderFeedCards(data) {
+  const reel = document.getElementById('feed-reel');
+  const emptyEl = document.getElementById('feed-empty');
+  if (!reel) return;
+  reel.querySelectorAll('.feed-card.public').forEach(c => c.remove());
+  if (!data?.length) {
+    if (!reel.querySelector('.feed-card') && emptyEl) emptyEl.style.display = 'flex';
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+  data.slice(0, 20).forEach(row => {
+    const s = row.story_data;
+    if (!s?.title || !s?.genre) return;
+    const gc = GENRE_COLORS[s.genre?.toUpperCase()] || GENRE_COLORS.MYTHOLOGY;
+    const firstImg = s.cover_img || s.episodes?.[0]?.scenes?.[0]?.img || '';
+    const genreLabel = s.genre ? (s.genre.charAt(0) + s.genre.slice(1).toLowerCase()) : 'Story';
+    const creator = s._creator || 'Katha User';
+    const card = document.createElement('div');
+    card.className = 'feed-card public generated';
+    const rowId = row.id;
+    card.innerHTML =
+      '<div class="feed-fallback" style="background:' + gc.fallback + ';"></div>' +
+      (firstImg ? '<img class="feed-bg" src="' + _esc(firstImg) + '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' : '') +
+      '<div class="feed-grad"></div>' +
+      '<div class="feed-content">' +
+        '<div class="feed-top"><div class="feed-top-text">' +
+          '<div class="feed-title">' + _esc(s.title) + '</div>' +
+          '<div class="feed-badge" style="background:' + gc.bg + ';color:' + gc.color + ';border-color:' + gc.border + ';">' + _esc(genreLabel) + ' · 6 eps</div>' +
+        '</div></div>' +
+        '<div class="feed-spacer"></div>' +
+        '<div class="feed-bottom">' +
+          '<div class="feed-hook">' + _esc(s.episodes?.[0]?.scenes?.[0]?.narrator || s.episodes?.[0]?.scenes?.[0]?.text || '') + '</div>' +
+          '<div class="feed-meta"><span>By ' + _esc(creator) + '</span><span class="dot-sep"></span><span>6 episodes</span></div>' +
+          '<button class="btn-gold feed-play-btn" onclick="playPublicStory(' + rowId + ')">&#9654; Play Episode 1</button>' +
+        '</div>' +
+      '</div>';
+    reel.appendChild(card);
+  });
+}
+
+function _renderExploreGrid(data) {
+  const grid = document.getElementById('explore-grid');
+  const emptyEl = document.getElementById('explore-empty');
+  if (!grid) return;
+  if (!data?.length) {
+    if (emptyEl) emptyEl.style.display = 'block';
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+  grid.innerHTML = '';
+  const byGenre = {};
+  data.forEach(row => {
+    const genre = (row.story_data?.genre || 'OTHER').toUpperCase();
+    if (!byGenre[genre]) byGenre[genre] = [];
+    byGenre[genre].push(row);
+  });
+  Object.entries(byGenre).forEach(([genre, rows]) => {
+    const gc = GENRE_COLORS[genre] || GENRE_COLORS.MYTHOLOGY;
+    const genreLabel = genre.charAt(0) + genre.slice(1).toLowerCase();
+    const section = document.createElement('div');
+    section.className = 'explore-section';
+    const countText = rows.length + (rows.length === 1 ? ' story' : ' stories');
+    section.innerHTML = '<div class="explore-section-head"><span class="explore-genre-name">' + _esc(genreLabel) + '</span><span class="explore-genre-count">' + countText + '</span></div><div class="explore-cards"></div>';
+    const cardsEl = section.querySelector('.explore-cards');
+    rows.forEach(row => {
+      const s = row.story_data;
+      const img = s?.cover_img || s?.episodes?.[0]?.scenes?.[0]?.img || '';
+      const card = document.createElement('div');
+      card.className = 'explore-card';
+      card.style.cursor = 'pointer';
+      card.innerHTML =
+        (img ? '<img src="' + _esc(img) + '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' : '<div style="position:absolute;inset:0;background:' + gc.fallback + ';border-radius:inherit;"></div>') +
+        '<div class="explore-card-grad"></div>' +
+        '<div class="explore-card-info">' +
+          '<div class="explore-card-badge" style="background:' + gc.bg + ';color:' + gc.color + ';">' + _esc(genreLabel) + '</div>' +
+          '<div class="explore-card-title">' + _esc(s?.title || 'Untitled') + '</div>' +
+          '<div class="explore-card-eps">6 eps · By ' + _esc(s?._creator || 'Katha User') + '</div>' +
+        '</div>';
+      card.onclick = () => playPublicStory(row.id);
+      cardsEl.appendChild(card);
+    });
+    grid.appendChild(section);
+  });
+}
+
 let _publicFeedTs = 0;
 async function loadPublicFeed() {
   if (!_supabase) return;
-  const now = Date.now();
-  if (now - _publicFeedTs < 5000) return; // debounce 5s only
   const reel = document.getElementById('feed-reel');
   const loadingEl = document.getElementById('feed-loading');
   const emptyEl = document.getElementById('feed-empty');
   if (!reel) return;
+
+  // Show sessionStorage cache instantly (zero-latency on revisit)
+  const cached = _storiesData || _storiesCacheLoad()?.rows;
+  if (cached?.length) {
+    if (loadingEl) loadingEl.style.display = 'none';
+    _renderFeedCards(cached);
+    // Background refresh if stale
+    if (Date.now() - _storiesFetchTs >= _STORIES_TTL) {
+      _fetchStories().then(fresh => { if (fresh) _renderFeedCards(fresh); });
+    }
+    return;
+  }
+
+  // True first load — show spinner and wait
   if (loadingEl) loadingEl.style.display = 'flex';
   if (emptyEl) emptyEl.style.display = 'none';
-  try {
-    const { data, error } = await _supabase
-      .from('stories')
-      .select('id, story_data, created_at')
-      .order('created_at', { ascending: false })
-      .limit(20);
-    if (loadingEl) loadingEl.style.display = 'none';
-    if (error || !data?.length) {
-      // Only show empty state if there are also no locally generated cards
-      if (!reel.querySelector('.feed-card')) {
-        if (emptyEl) emptyEl.style.display = 'flex';
-      }
-      return;
-    }
-    _publicFeedTs = now;
-    if (emptyEl) emptyEl.style.display = 'none';
-    // Remove previously inserted public cards
-    reel.querySelectorAll('.feed-card.public').forEach(c => c.remove());
-    data.forEach(row => {
-      const s = row.story_data;
-      if (!s?.title || !s?.genre) return;
-      const gc = GENRE_COLORS[s.genre?.toUpperCase()] || GENRE_COLORS.MYTHOLOGY;
-      const firstImg = s.cover_img || s.episodes?.[0]?.scenes?.[0]?.img || '';
-      const genreLabel = s.genre ? (s.genre.charAt(0) + s.genre.slice(1).toLowerCase()) : 'Story';
-      const creator = s._creator || 'Katha User';
-      const card = document.createElement('div');
-      card.className = 'feed-card public generated';
-      const rowId = row.id;
-      card.innerHTML =
-        '<div class="feed-fallback" style="background:' + gc.fallback + ';"></div>' +
-        (firstImg ? '<img class="feed-bg" src="' + _esc(firstImg) + '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' : '') +
-        '<div class="feed-grad"></div>' +
-        '<div class="feed-content">' +
-          '<div class="feed-top"><div class="feed-top-text">' +
-            '<div class="feed-title">' + _esc(s.title) + '</div>' +
-            '<div class="feed-badge" style="background:' + gc.bg + ';color:' + gc.color + ';border-color:' + gc.border + ';">' + _esc(genreLabel) + ' · 6 eps</div>' +
-          '</div></div>' +
-          '<div class="feed-spacer"></div>' +
-          '<div class="feed-bottom">' +
-            '<div class="feed-hook">' + _esc(s.episodes?.[0]?.scenes?.[0]?.narrator || s.episodes?.[0]?.scenes?.[0]?.text || '') + '</div>' +
-            '<div class="feed-meta"><span>By ' + _esc(creator) + '</span><span class="dot-sep"></span><span>6 episodes</span></div>' +
-            '<button class="btn-gold feed-play-btn" onclick="playPublicStory(' + rowId + ')">&#9654; Play Episode 1</button>' +
-          '</div>' +
-        '</div>';
-      reel.appendChild(card);
-    });
-  } catch(e) {
-    console.warn('Public feed load error:', e);
-    if (loadingEl) loadingEl.style.display = 'none';
-  }
+  const data = await _fetchStories();
+  if (loadingEl) loadingEl.style.display = 'none';
+  _renderFeedCards(data);
 }
 
 let _exploreTs = 0;
 async function loadExploreGrid() {
   if (!_supabase) return;
-  const now = Date.now();
-  if (now - _exploreTs < 5000) return;
   const grid = document.getElementById('explore-grid');
   const loadingEl = document.getElementById('explore-loading');
   const emptyEl = document.getElementById('explore-empty');
   if (!grid) return;
-  // Only show loading spinner if grid is empty (first load)
+
+  // Show sessionStorage cache instantly
+  const cached = _storiesData || _storiesCacheLoad()?.rows;
+  if (cached?.length) {
+    if (loadingEl) loadingEl.style.display = 'none';
+    _renderExploreGrid(cached);
+    if (Date.now() - _storiesFetchTs >= _STORIES_TTL) {
+      _fetchStories().then(fresh => { if (fresh) _renderExploreGrid(fresh); });
+    }
+    return;
+  }
+
+  // True first load — spinner only if grid is empty
   if (loadingEl) loadingEl.style.display = grid.children.length === 0 ? 'block' : 'none';
   if (emptyEl) emptyEl.style.display = 'none';
-  try {
-    const { data, error } = await _supabase
-      .from('stories')
-      .select('id, story_data, created_at')
-      .order('created_at', { ascending: false })
-      .limit(50);
-    if (loadingEl) loadingEl.style.display = 'none';
-    if (error || !data?.length) {
-      if (emptyEl) emptyEl.style.display = 'block';
-      return;
-    }
-    _exploreTs = now;
-    if (emptyEl) emptyEl.style.display = 'none';
-    grid.innerHTML = '';
-    // Group by genre
-    const byGenre = {};
-    data.forEach(row => {
-      const genre = (row.story_data?.genre || 'OTHER').toUpperCase();
-      if (!byGenre[genre]) byGenre[genre] = [];
-      byGenre[genre].push(row);
-    });
-    Object.entries(byGenre).forEach(([genre, rows]) => {
-      const gc = GENRE_COLORS[genre] || GENRE_COLORS.MYTHOLOGY;
-      const genreLabel = genre.charAt(0) + genre.slice(1).toLowerCase();
-      const section = document.createElement('div');
-      section.className = 'explore-section';
-      const countText = rows.length + (rows.length === 1 ? ' story' : ' stories');
-      section.innerHTML = '<div class="explore-section-head"><span class="explore-genre-name">' + _esc(genreLabel) + '</span><span class="explore-genre-count">' + countText + '</span></div><div class="explore-cards"></div>';
-      const cardsEl = section.querySelector('.explore-cards');
-      rows.forEach(row => {
-        const s = row.story_data;
-        const img = s?.cover_img || s?.episodes?.[0]?.scenes?.[0]?.img || '';
-        const card = document.createElement('div');
-        card.className = 'explore-card';
-        card.style.cursor = 'pointer';
-        card.innerHTML =
-          (img ? '<img src="' + _esc(img) + '" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">' : '<div style="position:absolute;inset:0;background:' + gc.fallback + ';border-radius:inherit;"></div>') +
-          '<div class="explore-card-grad"></div>' +
-          '<div class="explore-card-info">' +
-            '<div class="explore-card-badge" style="background:' + gc.bg + ';color:' + gc.color + ';">' + _esc(genreLabel) + '</div>' +
-            '<div class="explore-card-title">' + _esc(s?.title || 'Untitled') + '</div>' +
-            '<div class="explore-card-eps">6 eps · By ' + _esc(s?._creator || 'Katha User') + '</div>' +
-          '</div>';
-        card.onclick = () => playPublicStory(row.id);
-        cardsEl.appendChild(card);
-      });
-      grid.appendChild(section);
-    });
-  } catch(e) {
-    console.warn('Explore load error:', e);
-    if (loadingEl) loadingEl.style.display = 'none';
-    if (emptyEl) emptyEl.style.display = 'block';
-  }
+  const data = await _fetchStories();
+  if (loadingEl) loadingEl.style.display = 'none';
+  _renderExploreGrid(data);
 }
 
 async function playPublicStory(rowId) {
@@ -3054,8 +3116,7 @@ async function doSignOut() {
   try { if (_supabase) await _supabase.auth.signOut(); } catch(e) { /* ignore */ }
   _currentUser = null;
   _cachedToken = '';
-  _publicFeedTs = 0;
-  _exploreTs = 0;
+  _storiesCacheClear();
   localStorage.removeItem('katha_display_name');
   localStorage.removeItem('katha_stories_v1');
   localStorage.removeItem('katha_played_v1');
