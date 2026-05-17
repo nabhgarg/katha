@@ -2621,9 +2621,14 @@ async function saveGeneratedStory(story, creditMap) {
       if (maxKeep === 0) console.warn('localStorage quota exceeded — story saved to DB only');
     }
   }
-  // Save to DB with original cover_img (data: URLs are fine in Supabase JSONB — only localStorage has size limits)
+  // Upload cover image to Supabase Storage, get a persistent URL for the DB
   const dbStory = JSON.parse(JSON.stringify(story));
   dbStory._creator = _getDisplayName() || 'Katha User';
+  if (dbStory.cover_img?.startsWith('data:')) {
+    const url = await _uploadCoverToStorage(dbStory.cover_img);
+    if (url) dbStory.cover_img = url;
+    // else keep data: URL as fallback (large but workable)
+  }
   try { await _saveStoryToDb(dbStory, creditMap); _publicFeedTs = 0; } catch(e) { /* silent — no DB or not logged in */ }
 }
 
@@ -2966,6 +2971,26 @@ function updateDbStatusUI() {
   if (!el) return;
   el.textContent = '✓ Connected';
   el.style.color = '#4CAF50';
+}
+
+async function _uploadCoverToStorage(dataUrl) {
+  if (!_supabase || !_currentUser) return null;
+  if (!dataUrl || !dataUrl.startsWith('data:')) return dataUrl;
+  try {
+    // Convert base64 data URL → Blob
+    const [header, b64] = dataUrl.split(',');
+    const mime = header.match(/:(.*?);/)?.[1] || 'image/png';
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mime });
+    const ext = mime === 'image/jpeg' ? 'jpg' : 'png';
+    const path = `${_currentUser.id}/${Date.now()}.${ext}`;
+    const { error } = await _supabase.storage.from('covers').upload(path, blob, { contentType: mime, upsert: false });
+    if (error) { console.warn('Cover upload error:', error.message); return null; }
+    const { data } = _supabase.storage.from('covers').getPublicUrl(path);
+    return data?.publicUrl || null;
+  } catch(e) { console.warn('Cover upload failed:', e); return null; }
 }
 
 async function _saveStoryToDb(story, creditMap) {
