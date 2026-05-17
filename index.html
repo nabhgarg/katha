@@ -2635,10 +2635,9 @@ async function saveGeneratedStory(story, creditMap) {
   dbStory._creator = _getDisplayName() || 'Katha User';
   if (dbStory.cover_img?.startsWith('data:')) {
     const url = await _uploadCoverToStorage(dbStory.cover_img);
-    if (url) dbStory.cover_img = url;
-    // else keep data: URL as fallback (large but workable)
+    dbStory.cover_img = url || ''; // if Storage upload fails, strip base64 to avoid oversized payload
   }
-  try { await _saveStoryToDb(dbStory, creditMap); _storiesCacheClear(); } catch(e) { /* silent — no DB or not logged in */ }
+  try { await _saveStoryToDb(dbStory, creditMap); _storiesCacheClear(); } catch(e) { console.warn('DB save failed:', e.message); }
 }
 
 function loadSavedStories() {
@@ -3066,7 +3065,8 @@ async function _uploadCoverToStorage(dataUrl) {
 
 async function _saveStoryToDb(story, creditMap) {
   if (!_supabase || !_currentUser) return;
-  await _supabase.from('stories').insert({ user_id: _currentUser.id, story_data: story, credit_map: creditMap });
+  const { error } = await _supabase.from('stories').insert({ user_id: _currentUser.id, story_data: story, credit_map: creditMap });
+  if (error) throw new Error(error.message);
 }
 
 async function _loadStoriesFromDb() {
