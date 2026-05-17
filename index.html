@@ -2531,7 +2531,16 @@ async function runPipeline(userPrompt) {
     console.error('Pipeline error:', err);
     clearGeneratingCard();
     renderProfileMyStories();
-    showGenError('Something went wrong: ' + (err.message || 'unknown error') + '. Check your API key and try again.');
+    const msg = err.message || 'unknown error';
+    if (msg.includes('401') || msg.includes('JWT') || msg.includes('auth')) {
+      showGenError('Session expired — please sign out and sign back in, then try again.');
+    } else if (msg.includes('429') || msg.includes('rate')) {
+      showGenError('Too many requests — please wait a minute and try again.');
+    } else if (msg.includes('quota') || msg.includes('billing')) {
+      showGenError('OpenAI quota issue — please check your billing and try again.');
+    } else {
+      showGenError('Something went wrong: ' + msg + '. Please try again.');
+    }
   }
 }
 
@@ -2900,9 +2909,16 @@ function renderProfileMyStories() {
 }
 
 
-function startGenerating() {
+async function startGenerating() {
   const prompt = (document.getElementById('story-prompt')?.value || '').trim();
   if (!prompt) { alert('Please describe your story idea first!'); return; }
+  // Verify auth token before showing generating screen
+  const token = await _proxyToken();
+  if (!token) {
+    alert('Please sign in first to generate stories.');
+    navTo('onboard');
+    return;
+  }
   showScreen('generating');
   runPipeline(prompt);
 }
