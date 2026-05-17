@@ -3016,6 +3016,7 @@ function initSupabase() {
     // Pre-warm: kick off feed + explore fetch immediately so data is ready when user taps tabs
     setTimeout(() => { loadPublicFeed(); loadExploreGrid(); }, 100);
     _supabase.auth.onAuthStateChange(async (event, session) => {
+      if (_signingOut && event !== 'SIGNED_OUT') return;
       const wasLoggedOut = !_currentUser;
       _currentUser = session?.user || null;
       _cachedToken = session?.access_token || '';
@@ -3131,7 +3132,11 @@ function resetOnboardScreen() {
 async function doSignOut() {
   _signingOut = true;
   closeProfileSettings();
-  try { if (_supabase) await _supabase.auth.signOut(); } catch(e) { /* ignore */ }
+  try {
+    if (_supabase) await _supabase.auth.signOut({ scope: 'local' });
+  } catch(e) { console.warn('signOut error:', e); }
+  // Belt-and-suspenders: nuke any lingering Supabase auth tokens
+  Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k));
   _currentUser = null;
   _cachedToken = '';
   _storiesCacheClear();
