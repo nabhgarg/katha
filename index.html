@@ -2087,10 +2087,8 @@ function _safeJsonParse(raw) {
   return JSON.parse(fenced ? fenced[1].trim() : s);
 }
 
-async function _proxyToken() {
-  if (!_supabase) return '';
-  const { data } = await _supabase.auth.getSession().catch(() => ({ data: {} }));
-  return data?.session?.access_token || '';
+function _proxyToken() {
+  return _cachedToken;
 }
 
 async function oaiChat(messages, model = 'gpt-4o-mini') {
@@ -2435,16 +2433,6 @@ async function runPipeline(userPrompt) {
   showGeneratingCard();
 
   try {
-    // Quick auth check with 5s timeout — fail fast rather than hanging
-    const token = await Promise.race([
-      _proxyToken(),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('AUTH_TIMEOUT')), 5000))
-    ]).catch(e => {
-      if (e.message === 'AUTH_TIMEOUT') throw new Error('Could not verify your session. Please sign out and sign back in.');
-      return '';
-    });
-    if (!token) throw new Error('Please sign in to generate stories.');
-
     // Stage 1: Bible (gpt-4o)
     setGenItem(0, 'active');
     setGenEta('Estimated: 3–5 minutes');
@@ -2944,6 +2932,7 @@ function closeProfileSettings() {
 let _supabase = null;
 let _currentUser = null;
 let _signingOut = false;
+let _cachedToken = '';
 
 const _SB_URL = 'https://vxpiktpczpnwbxzrlrfv.supabase.co';
 const _SB_KEY = 'sb_publishable_7AHJ_aL1DchcUjk9_0KiNQ_zewZxlbr';
@@ -2957,6 +2946,7 @@ function initSupabase() {
     _supabase.auth.onAuthStateChange(async (event, session) => {
       const wasLoggedOut = !_currentUser;
       _currentUser = session?.user || null;
+      _cachedToken = session?.access_token || '';
       _updateAuthUI();
       renderProfileHead();
       if (!_signingOut && _currentUser) {
@@ -3061,6 +3051,7 @@ async function doSignOut() {
   closeProfileSettings();
   try { if (_supabase) await _supabase.auth.signOut(); } catch(e) { /* ignore */ }
   _currentUser = null;
+  _cachedToken = '';
   _publicFeedTs = 0;
   _exploreTs = 0;
   localStorage.removeItem('katha_display_name');
