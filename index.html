@@ -2819,13 +2819,12 @@ async function loadExploreGrid() {
 }
 
 async function playPublicStory(rowId) {
-  if (!_currentUser) { navTo('onboard'); return; }
   if (!_supabase) return;
   try {
     const { data, error } = await _supabase.from('stories').select('story_data').eq('id', rowId).single();
     if (error || !data) { alert('Story not found.'); return; }
     const s = data.story_data;
-    _recordPlayed(rowId, s.title || 'Untitled', s.cover_img || s.episodes?.[0]?.scenes?.[0]?.img || '');
+    if (_currentUser) _recordPlayed(rowId, s.title || 'Untitled', s.cover_img || s.episodes?.[0]?.scenes?.[0]?.img || '');
     CURRENT_STORY = s;
     CURRENT_CREDIT_MAP = [];
     ST.ep = 0; ST.scene = 0; ST.choices = {}; ST.branch = null;
@@ -2937,6 +2936,8 @@ function initSupabase() {
   if (!window.supabase) return false;
   try {
     _supabase = window.supabase.createClient(_SB_URL, _SB_KEY);
+    // Pre-warm: kick off feed + explore fetch immediately so data is ready when user taps tabs
+    setTimeout(() => { loadPublicFeed(); loadExploreGrid(); }, 100);
     _supabase.auth.onAuthStateChange(async (event, session) => {
       const wasLoggedOut = !_currentUser;
       _currentUser = session?.user || null;
