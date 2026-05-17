@@ -2268,7 +2268,7 @@ async function stageScenes(bible, epPlan, prevLastLine, epNum, prevChoiceLabel, 
     ? `Player ne pichle episode mein yeh choose kiya tha: "${prevChoiceLabel}". Uska consequence is episode ki pehli scene mein clearly dikhna chahiye — player ko feel hona chahiye ki unki choice mattered.`
     : '';
   const bannedText = (bannedLines && bannedLines.length)
-    ? `In phrases ko BILKUL mat repeat karo — paraphrase bhi nahi:\n${bannedLines.slice(-12).join('\n')}`
+    ? `In phrases ko BILKUL mat repeat karo — paraphrase bhi nahi:\n${bannedLines.slice(-24).join('\n')}`
     : '';
 
   return oaiChat([
@@ -2287,7 +2287,9 @@ Output sirf JSON.` },
 2. ${sceneJobs[1]}
 3. ${sceneJobs[2]}
 
-Teeno scenes likho. Har scene ke liye output:
+Teeno scenes likho. IMPORTANT: Teeno scenes ek doosre se completely alag honi chahiye — same sentence, phrase, ya emotion BILKUL mat repeat karo, paraphrase bhi nahi. Har scene ek naya moment, naya emotion, naya angle.
+
+Har scene ke liye output:
 
 narrator: Hinglish third-person present tense. 2-3 sentences. Ek concrete sensory detail (smell/awaaz/texture/temperature) zaroor ho. Action aur emotion dikhao — explain mat karo. Last sentence next scene ko inevitable banaye ya tension badhaye.
 
@@ -2481,7 +2483,7 @@ async function runPipeline(userPrompt) {
 
       _extractBannedLines(resA.scenes).forEach(l => bannedLines.push(l));
       _extractBannedLines(resB.scenes).forEach(l => bannedLines.push(l));
-      if (bannedLines.length > 48) bannedLines.splice(0, bannedLines.length - 48);
+      if (bannedLines.length > 72) bannedLines.splice(0, bannedLines.length - 72);
       prevLastLineA = _extractLastLine(resA.scenes);
       prevLastLineB = _extractLastLine(resB.scenes);
     }
