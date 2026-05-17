@@ -2435,6 +2435,16 @@ async function runPipeline(userPrompt) {
   showGeneratingCard();
 
   try {
+    // Quick auth check with 5s timeout — fail fast rather than hanging
+    const token = await Promise.race([
+      _proxyToken(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('AUTH_TIMEOUT')), 5000))
+    ]).catch(e => {
+      if (e.message === 'AUTH_TIMEOUT') throw new Error('Could not verify your session. Please sign out and sign back in.');
+      return '';
+    });
+    if (!token) throw new Error('Please sign in to generate stories.');
+
     // Stage 1: Bible (gpt-4o)
     setGenItem(0, 'active');
     setGenEta('Estimated: 3–5 minutes');
@@ -2909,18 +2919,9 @@ function renderProfileMyStories() {
 }
 
 
-async function startGenerating() {
+function startGenerating() {
   const prompt = (document.getElementById('story-prompt')?.value || '').trim();
   if (!prompt) { alert('Please describe your story idea first!'); return; }
-  const btn = document.querySelector('.create-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Starting…'; }
-  const token = await _proxyToken();
-  if (btn) { btn.disabled = false; btn.textContent = 'Create Story →'; }
-  if (!token) {
-    alert('Please sign in first to generate stories.');
-    navTo('onboard');
-    return;
-  }
   showScreen('generating');
   runPipeline(prompt);
 }
