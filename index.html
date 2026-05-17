@@ -2912,8 +2912,10 @@ function renderProfileMyStories() {
 async function startGenerating() {
   const prompt = (document.getElementById('story-prompt')?.value || '').trim();
   if (!prompt) { alert('Please describe your story idea first!'); return; }
-  // Verify auth token before showing generating screen
+  const btn = document.querySelector('.create-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Starting…'; }
   const token = await _proxyToken();
+  if (btn) { btn.disabled = false; btn.textContent = 'Create Story →'; }
   if (!token) {
     alert('Please sign in first to generate stories.');
     navTo('onboard');
