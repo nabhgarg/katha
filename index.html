@@ -3074,7 +3074,10 @@ async function submitOnboard() {
   try {
     const { error } = await _supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true }
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: 'https://nabhgarg.github.io/katha/'
+      }
     });
     if (error) throw error;
     _pendingEmail = email;
