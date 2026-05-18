@@ -1553,6 +1553,7 @@
           <input id="onboard-email" type="email" placeholder="your@email.com" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:14px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;margin-bottom:12px;" />
           <div id="onboard-error" style="display:none;color:#ff6b6b;font-size:12px;margin-bottom:10px;"></div>
           <button id="onboard-submit-btn" onclick="submitOnboard()" style="width:100%;background:#FFB020;color:#000;border:none;border-radius:12px;height:52px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;">Send code →</button>
+          <div id="build-label" style="text-align:center;font-size:10px;color:#555;margin-top:16px;"></div>
         </div>
         <!-- Step 2: OTP verification -->
         <div id="onboard-otp" style="display:none;">
@@ -3008,6 +3009,7 @@ let _cachedToken = '';
 
 const _SB_URL = 'https://vxpiktpczpnwbxzrlrfv.supabase.co';
 const _SB_KEY = 'sb_publishable_7AHJ_aL1DchcUjk9_0KiNQ_zewZxlbr';
+const _BUILD = '2026-05-18-v3';
 
 function initSupabase() {
   if (!window.supabase) return false;
@@ -3266,6 +3268,8 @@ function closeSave() {
 
 /* ---------- INIT ---------- */
 window.addEventListener('load', async () => {
+  const bl = document.getElementById('build-label');
+  if (bl) bl.textContent = 'build ' + _BUILD;
   initSupabase();
   renderFeedGenerated();
   renderProfileMyStories();
