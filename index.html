@@ -2768,6 +2768,8 @@ function _renderFeedCards(data) {
   data.slice(0, 20).forEach(row => {
     const s = row.story_data;
     if (!s?.title || !s?.genre) return;
+    // Skip stories owned by the current user — they already appear in the "generated" cards above
+    if (_currentUser && row.user_id === _currentUser.id) return;
     const gc = GENRE_COLORS[s.genre?.toUpperCase()] || GENRE_COLORS.MYTHOLOGY;
     const firstImg = s.cover_img || s.episodes?.[0]?.scenes?.[0]?.img || '';
     const genreLabel = s.genre ? (s.genre.charAt(0) + s.genre.slice(1).toLowerCase()) : 'Story';
@@ -3009,7 +3011,7 @@ let _cachedToken = '';
 
 const _SB_URL = 'https://vxpiktpczpnwbxzrlrfv.supabase.co';
 const _SB_KEY = 'sb_publishable_7AHJ_aL1DchcUjk9_0KiNQ_zewZxlbr';
-const _BUILD = '2026-05-18-v3';
+const _BUILD = '2026-05-18-v4';
 
 function initSupabase() {
   if (!window.supabase) return false;
