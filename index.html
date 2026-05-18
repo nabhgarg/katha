@@ -2094,11 +2094,21 @@ function _proxyToken() {
 
 async function oaiChat(messages, model = 'gpt-4o-mini') {
   const token = await _proxyToken();
-  const res = await fetch(_PROXY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-    body: JSON.stringify({ type: 'chat', model, messages })
-  });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 90000);
+  let res;
+  try {
+    res = await fetch(_PROXY, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ type: 'chat', model, messages }),
+      signal: ctrl.signal
+    });
+  } catch(e) {
+    clearTimeout(timer);
+    throw new Error(e.name === 'AbortError' ? 'Request timed out — please try again' : e.message);
+  }
+  clearTimeout(timer);
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || 'API error ' + res.status); }
   const d = await res.json();
   if (!d.choices?.[0]?.message?.content) throw new Error('Empty response from model');
@@ -2125,18 +2135,24 @@ async function oaiImage(prompt) {
     // Try gpt-image-1 via proxy, fall back to Pollinations
     for (const model of ['gpt-image-1']) {
       try {
-        const res = await fetch(_PROXY, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify({ type: 'image', model, prompt, size: '1024x1024' })
-        });
-        if (res.ok) {
-          const d = await res.json();
+        const imgCtrl = new AbortController();
+        const imgTimer = setTimeout(() => imgCtrl.abort(), 90000);
+        let imgRes;
+        try {
+          imgRes = await fetch(_PROXY, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ type: 'image', model, prompt, size: '1024x1024' }),
+            signal: imgCtrl.signal
+          });
+        } finally { clearTimeout(imgTimer); }
+        if (imgRes.ok) {
+          const d = await imgRes.json();
           const b64 = d.data?.[0]?.b64_json;
           if (b64) return 'data:image/png;base64,' + b64;
           if (d.data?.[0]?.url) return d.data[0].url;
         }
-      } catch(e) { /* try next model */ }
+      } catch(e) { /* try next model or fall back to Pollinations */ }
     }
   }
   // Free fallback: Pollinations.ai (deterministic seed — same prompt = same image across sessions)
@@ -3011,7 +3027,7 @@ let _cachedToken = '';
 
 const _SB_URL = 'https://vxpiktpczpnwbxzrlrfv.supabase.co';
 const _SB_KEY = 'sb_publishable_7AHJ_aL1DchcUjk9_0KiNQ_zewZxlbr';
-const _BUILD = '2026-05-18-v4';
+const _BUILD = '2026-05-18-v5';
 
 function initSupabase() {
   if (!window.supabase) return false;
