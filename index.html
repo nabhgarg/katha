@@ -432,6 +432,37 @@
     letter-spacing: 0.05px;
     white-space: pre-line;
   }
+  .sub-hl.v3-mode {
+    white-space: normal;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+  }
+  .v3-scene-ctx {
+    display: block;
+    font-size: 13px;
+    color: #A0A0B8;
+    font-weight: 400;
+    line-height: 1.55;
+    margin-bottom: 10px;
+  }
+  .v3-dialogue {
+    display: block;
+    font-size: 17px;
+    color: #FFFFFF;
+    font-weight: 600;
+    line-height: 1.45;
+    margin: 3px 0;
+  }
+  .v3-action {
+    display: block;
+    font-size: 12px;
+    color: #A0A0B8;
+    font-style: italic;
+    font-weight: 400;
+    line-height: 1.4;
+    margin: 3px 0;
+  }
   .sub-body {
     font-size: 16px;
     color: #A0A0B8;
@@ -1868,16 +1899,25 @@ function renderScene() {
 
   const hlEl = document.getElementById('sub-hl');
   const bodyEl = document.getElementById('sub-body');
-  if (s.script) {
-    // V3 format: parse *action* / dialogue interleaved script string
+  if (CURRENT_STORY && CURRENT_STORY.version === 'v3' && s.script) {
+    // V3 format: SCENE_CONTEXT (first *action* block) → CHARACTER_DIALOGUE → ACTION_PROSE
     const nodes = parseScriptStringToUiNodes(s.script);
-    const actionLines = nodes.filter(n => n.type === 'ACTION_PROSE').map(n => n.text);
-    const dialogueLines = nodes.filter(n => n.type === 'CHARACTER_DIALOGUE').map(n => n.text);
-    hlEl.textContent = dialogueLines.join('\n') || '—';
-    bodyEl.textContent = actionLines.join(' ');
+    const _esc = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    let html = '';
+    for (const n of nodes) {
+      if (n.type === 'SCENE_CONTEXT') html += `<span class="v3-scene-ctx">${_esc(n.text)}</span>`;
+      else if (n.type === 'CHARACTER_DIALOGUE') html += `<span class="v3-dialogue">${_esc(n.text)}</span>`;
+      else if (n.type === 'ACTION_PROSE') html += `<span class="v3-action">${_esc(n.text)}</span>`;
+    }
+    hlEl.classList.add('v3-mode');
+    hlEl.innerHTML = html || '—';
+    bodyEl.textContent = '';
+    bodyEl.style.display = 'none';
   } else {
     // V1 format: narrator + dialogues[]. Old format: hl + body (backward compat)
-    const dialogueText = (s.dialogues && s.dialogues.length) ? s.dialogues.join('\n') : (s.hl || '');
+    hlEl.classList.remove('v3-mode');
+    bodyEl.style.display = '';
+    const dialogueText = (s.dialogues && s.dialogues.length) ? s.dialogues.join('\n') : (s.script ? parseScriptStringToUiNodes(s.script).filter(n => n.type === 'CHARACTER_DIALOGUE').map(n => n.text).join('\n') : (s.hl || ''));
     hlEl.textContent = dialogueText;
     bodyEl.textContent = s.narrator || s.body || '';
   }
@@ -2363,13 +2403,17 @@ function parseScriptStringToUiNodes(scriptString) {
   const nodes = [];
   const pattern = /(\*[^*]+\*)|([^*]+)/g;
   let match;
+  let firstActionSeen = false;
   while ((match = pattern.exec(scriptString)) !== null) {
     if (match[1]) {
       const action = match[1].replace(/\*/g, '').trim();
-      if (action) nodes.push({ type: 'ACTION_PROSE', text: action });
+      if (action) {
+        nodes.push({ type: firstActionSeen ? 'ACTION_PROSE' : 'SCENE_CONTEXT', text: action });
+        firstActionSeen = true;
+      }
     } else if (match[2]) {
       const lines = match[2].split('\n').map(l => l.trim()).filter(Boolean);
-      for (const l of lines) nodes.push({ type: 'CHARACTER_DIALOGUE', text: l });
+      for (const l of lines) if (l) nodes.push({ type: 'CHARACTER_DIALOGUE', text: l });
     }
   }
   return nodes;
@@ -2950,6 +2994,29 @@ ${scriptsText}` }
   ]);
 }
 
+async function stageValidateEp6(ep6Scenes, blueprint) {
+  const scriptsText = (ep6Scenes?.scenes || []).map((s, i) => `Scene ${i + 1}:\n${s.script}`).join('\n\n---\n\n');
+  return oaiChat([
+    { role: 'system', content: `You audit the final episode of a story before it ships.
+
+CHECKS (Episode 6 only):
+1. Does the resolution address the secret — not by naming it, but by enacting its consequence?
+2. Does the final scene end on a resonant image or gesture rather than a summarizing statement?
+3. Does any scene use a supporting character to state the story's theme directly? If yes, failure.
+
+If all checks pass: set pass true.
+If any check fails: set pass false, identify the single worst-failing scene (target_node 1/2/3), and produce a corrected revised_script for THAT SCENE ONLY.
+
+Output raw JSON only, no markdown fences:
+{"pass": true|false, "issues": ["..."], "target_node": 1|2|3|null, "revised_script": "..."|null}` },
+    { role: 'user', content: `Story: "${blueprint.title}" (${blueprint.genre})
+Secret: "${blueprint.secret || ''}"
+
+Episode 6 scenes:
+${scriptsText}` }
+  ]);
+}
+
 async function stageRecomputeState(prevState, epScenes, blueprint) {
   const scenes = epScenes?.scenes || [];
   const scriptText = scenes.map((s, i) => `Scene ${i + 1}:\n${s.script || ''}`).join('\n\n');
@@ -3138,34 +3205,27 @@ async function generateRemainingEpisodesInBackground(blueprint, ep1Scenes, dbRow
         _storiesCacheClear();
       }
 
+      // Ep6 validator: check resolution, resonant ending, no theme-stating by characters
+      if (n === 6) {
+        try {
+          const ep6Validation = await stageValidateEp6(branchA, blueprint);
+          if (ep6Validation && !ep6Validation.pass && ep6Validation.target_node && ep6Validation.revised_script) {
+            const idx = ep6Validation.target_node - 1;
+            if (branchA.scenes[idx]) branchA.scenes[idx].script = ep6Validation.revised_script;
+            // Reflect fix in CURRENT_STORY
+            if (CURRENT_STORY?.episodes[n - 1]?.scenesA?.[idx]) {
+              CURRENT_STORY.episodes[n - 1].scenesA[idx].script = ep6Validation.revised_script;
+            }
+          }
+        } catch(e) { console.warn('Ep6 validator failed (non-fatal):', e.message); }
+      }
+
       banned_lines.push(...extractBannedLinesV3(branchA), ...extractBannedLinesV3(branchB));
       if (banned_lines.length > 72) banned_lines.splice(0, banned_lines.length - 72);
       prev_last_sentence = extractLastSentenceV3(branchA);
 
       try { story_state = await stageRecomputeState(story_state, branchA, blueprint); } catch(e) { /* keep prev */ }
     }
-
-    // Generate cover image after all text is done
-    try {
-      const coverImg = await oaiImage(buildCoverPromptV3(blueprint));
-      if (CURRENT_STORY && CURRENT_STORY.version === 'v3') {
-        CURRENT_STORY.cover_img = coverImg;
-      }
-      _updateV3InLocalStorage(localId);
-      if (dbRowId) {
-        const dbStory = JSON.parse(JSON.stringify(CURRENT_STORY));
-        dbStory._creator = _getDisplayName() || 'Katha User';
-        if (dbStory.cover_img?.startsWith('data:')) {
-          const url = await _uploadCoverToStorage(dbStory.cover_img);
-          dbStory.cover_img = url || '';
-          if (CURRENT_STORY && url) CURRENT_STORY.cover_img = url;
-        }
-        await _updateStoryInDb(dbRowId, dbStory, creditMap).catch(e => console.warn('Cover UPDATE failed:', e.message));
-        _storiesCacheClear();
-      }
-      renderProfileMyStories();
-      renderFeedGenerated();
-    } catch(e) { console.warn('Cover generation failed:', e.message); }
 
   } catch(e) { console.warn('Background generation error:', e.message); }
 }
@@ -3192,19 +3252,22 @@ async function runPipelineV3(userPrompt) {
     const genLabel = blueprint.genre.charAt(0) + blueprint.genre.slice(1).toLowerCase();
     setGenBadge('✓ ' + genLabel + ' story planned!');
 
-    // Stage 2: Episode 1 scenes
+    // Stage 2: Episode 1 + cover image in parallel
     setGenItem(1, 'active');
     setGenEta('Writing Episode 1...');
     const ep1Examples = selectGoldenExamples(blueprint.genre, 1);
-    const ep1Result = await stageScenesV3({
-      blueprint,
-      episodeNumber: 1,
-      story_state: null,
-      prev_last_sentence: null,
-      choice_label: null,
-      banned_lines: [],
-      examples: ep1Examples
-    });
+    const [ep1Result, coverImg] = await Promise.all([
+      stageScenesV3({
+        blueprint,
+        episodeNumber: 1,
+        story_state: null,
+        prev_last_sentence: null,
+        choice_label: null,
+        banned_lines: [],
+        examples: ep1Examples
+      }),
+      oaiImage(buildCoverPromptV3(blueprint)).catch(e => { console.warn('Cover failed (non-fatal):', e.message); return ''; })
+    ]);
     if (!ep1Result?.scenes?.length) throw new Error('Episode 1 returned no scenes — please try again.');
     setGenItem(1, 'done');
 
@@ -3220,11 +3283,11 @@ async function runPipelineV3(userPrompt) {
     } catch(e) { console.warn('Validator failed (non-fatal):', e.message); }
     setGenItem(2, 'done');
 
-    // Assemble story with ep1 only (eps 2-6 frames exist but with empty scenes — background will fill them)
+    // Assemble story with ep1 + cover (both ready now — cover won't arrive late)
     setGenItem(3, 'active');
     setGenEta('Opening your Katha...');
 
-    const partial = assembleStoryV3(blueprint, [ep1Result], '');
+    const partial = assembleStoryV3(blueprint, [ep1Result], coverImg);
     const creditMap = assembleCreditsV3(blueprint);
 
     // Write to localStorage immediately
@@ -3236,6 +3299,22 @@ async function runPipelineV3(userPrompt) {
       saved.unshift(newEntry);
       localStorage.setItem(STORIES_KEY, JSON.stringify(saved));
     } catch(e) { console.warn('localStorage write failed:', e.message); }
+
+    // Upload cover to Supabase Storage so DB row gets a persistent URL (not base64)
+    if (partial.cover_img?.startsWith('data:')) {
+      try {
+        const url = await _uploadCoverToStorage(partial.cover_img);
+        if (url) {
+          partial.cover_img = url;
+          // Update localStorage with the URL version
+          try {
+            const saved = JSON.parse(localStorage.getItem(STORIES_KEY) || '[]');
+            const idx = saved.findIndex(e => e.id === localId);
+            if (idx !== -1) { saved[idx].story = _prepareForStorage(partial); localStorage.setItem(STORIES_KEY, JSON.stringify(saved)); }
+          } catch(e) { /* quota — non-critical */ }
+        }
+      } catch(e) { console.warn('Cover upload failed (non-fatal):', e.message); }
+    }
 
     // Write initial row to DB
     let dbRowId = null;
