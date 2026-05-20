@@ -57,7 +57,38 @@ Okay. I'm Maya.
 
 ---
 
-### Scene R-2 — Midpoint
+### Scene R-2 — Opener
+
+- **genre:** ROMANCE
+- **scene_position:** OPENER
+- **emotional_beat:** mutual exposure, neither meant to be here
+- **structural_lesson:** Class tension through what each person is hiding, not who they are. Two lives revealed through what's visible on their screens.
+
+*Raat ke 11:40. Office floor suna pada tha — AC band ho chuki thi, sirf ek corner ki lights on thi. Dono ko lagta tha woh last hain yahan. Dono galat the.*
+
+*Woh breakout pod mein tha, laptop par kuch aisa jo clearly personal tha — cover letter ka pehla draft, "Dear Hiring Manager" line teen baar kati hui. Usne screen itni tezi se fold ki ki chai girti girti bachi.*
+
+*Woh chai lene aayi thi. Pantry se guzrte hue dekh liya tha.*
+
+Sorry, main bas —
+
+Nahi nahi, main hi — sorry.
+
+*Dono ruk gaye.*
+
+*Uski screen ka reflection glass mein dikh raha tha — spreadsheet, numbers, ek column jis par "Exit Package" likha tha. Usne dekha ki usne dekh liya.*
+
+*Koi nahi bola kuch.*
+
+Chai zyada bani hai. Lo.
+
+*Usne cup liya. Glass mein woh reflection abhi bhi tha. "Dear Hiring Manager." Woh bhi wahan nahi honi chahiye thi — "Exit Package" wali spreadsheet raat ke 11:40 par.*
+
+*Dono jaante the ki dono kuch chhupa rahe the. Kisi ne mention nahi kiya.*
+
+---
+
+### Scene R-3 — Midpoint
 
 - **genre:** ROMANCE
 - **scene_position:** MIDPOINT
@@ -96,7 +127,44 @@ Cool.
 
 ---
 
-### Scene R-3 — Cliffhanger
+### Scene R-4 — Midpoint
+
+- **genre:** ROMANCE
+- **scene_position:** MIDPOINT
+- **emotional_beat:** almost-said things accumulating weight
+- **structural_lesson:** Physical proximity as pressure. What's not said does more than what's said. Interrupted questions are the scene's engine.
+
+*Building ki common terrace thi yeh — lock usually hoti thi, aaj nahi thi. Woh alag alag wajahon se wahan aa gaye the. Raat ke 11. Neeche colony poori tarah soya nahi tha.*
+
+*Ek toota plastic chair tha. Usne use nahi liya. Woh railing ke paas khadi rahi. Neeche ek kutta bhaunkna shuru karta tha aur band karta tha, bhaunkna shuru karta tha aur band karta tha.*
+
+Neend nahi aayi?
+
+Tujhe?
+
+*Koi nahi bola kuch.*
+
+*Upar se ek hawai jahaaz guzra — lights blink karti, blink karti, chali gayi.*
+
+Maa ne pucha tha aaj. Tere baare mein.
+
+*Woh kuch nahi bola.*
+
+Maine bol diya ki tum dost ho.
+
+*Abhi bhi kuch nahi bola.*
+
+Isliye puchha? Kyunki yeh sach tha ya kyunki —
+
+Dono.
+
+*Neeche kutta phir bhaunkne laga aur band ho gaya.*
+
+*Railing thandi thi. Unke haath ek doosre ke paas the. Nahi chhue. Paas.*
+
+---
+
+### Scene R-5 — Cliffhanger
 
 - **genre:** ROMANCE
 - **scene_position:** CLIFFHANGER
@@ -116,6 +184,37 @@ tum ruk jao
 *Andar nahi gaya tha.*
 
 *Usne phone nahi rakha. Woh aage nahi badha. Cursor blink hua. Cursor blink hua. Cursor blink hua.*
+
+---
+
+### Scene R-6 — Cliffhanger
+
+- **genre:** ROMANCE
+- **scene_position:** CLIFFHANGER
+- **emotional_beat:** a door that opens the moment you stopped waiting for it
+- **structural_lesson:** Cliffhanger through a single physical object. What the object contains matters less than what it means. Ends on the held gesture, not the decision.
+
+*Lifafa press-printed tha — cream paper, gold border, ek achhi family ki shaadi ka lifafa. Sheher ke bahar se aaya tha, courier se. Usne bina sooche khola.*
+
+*Card tha andar. Naam padha.*
+
+*Pehla naam: Kabir.*
+
+*Doosra naam: koi aur.*
+
+*Woh Kabir ka naam jaanti thi. Saat mahine pehle jaanti thi. Saat mahine pehle usne decide kiya tha ki yeh nahi hoga.*
+
+*Card mez par rakha. Phir uthaya. Phir rakha.*
+
+*Card ke andar ek chitti thi — haath se likhi, sirf ek line.*
+
+*"Aana. Please."*
+
+*"Please" — woh shabd usne Kabir ke muh se kabhi nahi suna tha. Kabir ne kabhi nahi maanga tha.*
+
+*Chitti abhi bhi haath mein thi. Card mez par tha.*
+
+*Date teen hafte baad ki thi.*
 
 ---
 
@@ -166,7 +265,7 @@ Maya introduced herself warmly: "Okay, I'm Maya then."
 
 *Figure ne apna sar ghumaaya.*
 
-*Woh itni tezi se counter ke neeche jhuki ki kuhni cabinet se lagi. Andar se ek steel katori giri — awaaz badi lagi. Saanson ko rok liya. Neeeche se landlord ka TV — koi news anchor chilla raha tha. Das take gine. Fir bees. Phir actually ghutno pe chali — haath aur ek ghutne ke side par — aur kitchen ki light band kar di.*
+*Woh itni tezi se counter ke neeche jhuki ki kuhni cabinet se lagi. Andar se ek steel katori giri — awaaz badi lagi. Saanson ko rok liya. Neeche se landlord ka TV — koi news anchor chilla raha tha. Das take gine. Fir bees. Phir actually ghutno pe chali — haath aur ek ghutne ke side par — aur kitchen ki light band kar di.*
 
 *Andheron mein saans li.*
 
@@ -180,7 +279,34 @@ Phone. Phone, phone, phone.
 
 ---
 
-### Scene T-2 — Midpoint
+### Scene T-2 — Opener
+
+- **genre:** THRILLER
+- **scene_position:** OPENER
+- **emotional_beat:** self-exposure, memory that isn't yours
+- **structural_lesson:** Threat arrives inside the completely ordinary. The impossible detail is buried in a mundane action — scrolling your own gallery. Reader realizes before the character does.
+
+*Subah ki chai, phone scroll, gallery. Woh apni hi photos dekh rahi thi jaise roz karta hai — kuch maa ko bhejna tha, koi achhi wali. Gallery din ke hisaab se sorted thi.*
+
+*Aaj ke neeche kal. Kal ke neeche parson. Normal.*
+
+*Parson ke neeche teen din pehle wali folder thi.*
+
+*Teen din pehle woh ghar par thi. Woh jaanti thi — period cramps the, usne delivery se khana mangaya tha, kahin nahi gayi thi.*
+
+*Teen din pehle ki 47 photos thi. Raat ki. Ek jagah se — brick walls, string lights, kaafi log. Kisi party mein. Har photo mein woh thi.*
+
+*Usne nahi li thi yeh photos. Woh wahan nahi thi.*
+
+*Usne phone rakh diya. Chai abhi bhi garam thi. Usne wapas uthaya.*
+
+*Photo number 23 mein kisi ne use shoulder se pakda tha. Uski aankhein camera dekh rahi thi. Muskura rahi thi.*
+
+*Woh muskaan uski nahi thi.*
+
+---
+
+### Scene T-3 — Midpoint
 
 - **genre:** THRILLER
 - **scene_position:** MIDPOINT
@@ -189,7 +315,7 @@ Phone. Phone, phone, phone.
 
 *Darwaza khula tha. Woh roz darwaza band karti thi. Woh roz darwaza band karti thi.*
 
-*Woh darwaze ke frame mein khadi thi, chaabiyan abhi haath mein. Andar flat bilkul waisaa tha jaise chhoda tha. Pankha band. Parda parhaa hua. Chappalen shoe rack ke paas, thodi seedhi wali taraf jaise woh rakhti hai. Kitchen ka tap nahi tapak raha tha. Sab kuch bilkul waisa tha.*
+*Woh darwaaze ke frame mein khadi thi, chaabiyan abhi haath mein. Andar flat bilkul waisaa tha jaise chhoda tha. Pankha band. Parda parhaa hua. Chappalen shoe rack ke paas, thodi seedhi wali taraf jaise woh rakhti hai. Kitchen ka tap nahi tapak raha tha. Sab kuch bilkul waisa tha.*
 
 *Sivaay darwaaze ke.*
 
@@ -217,12 +343,51 @@ Madam, aap building se bahar nikliye. Abhi.
 
 ---
 
-### Scene T-3 — Cliffhanger
+### Scene T-4 — Midpoint
+
+- **genre:** THRILLER
+- **scene_position:** MIDPOINT
+- **emotional_beat:** the helper was always part of it
+- **structural_lesson:** Reveal through a single object out of place. The protagonist's realization happens through body before brain — noticing before understanding. Ends on the action that confirms everything.
+
+*Saari information usne di thi — Vikram ne. "Yahan mat jao. Yeh number use karo. Inn logon se baat mat karo." Char din se woh usi ke instructions par chal rahi thi. Safe rahi thi.*
+
+*Aaj usne notice kiya.*
+
+*Jis number se woh call karti thi "safe line" par — woh number call log mein teen mahine pehle bhi tha. Uss din se ek hafte pehle jab yeh sab shuru hua.*
+
+*Matlab Vikram pehle se jaanta tha.*
+
+*Woh abhi bhi use safe rakh raha tha. Yeh sach tha. Par woh pehle se bhi jaanta tha.*
+
+*Usne phone neeche rakha. Apna flat — safed deewaren, Ammi ki photo, ghar waali khushbu. Sab tha.*
+
+*Sivaay ek cheez ke.*
+
+*Usne kitaab wahan rakhi thi — mez ki left side par. Kitaab right side par thi.*
+
+Vikram.
+
+*Ek ring. Do. Teen.*
+
+Haan, sab theek hai?
+
+*Bilkul normal awaaz.*
+
+Haan. Sab theek hai.
+
+*Usne call kaat di.*
+
+*Kitaab right side par thi.*
+
+---
+
+### Scene T-5 — Cliffhanger
 
 - **genre:** THRILLER
 - **scene_position:** CLIFFHANGER
 - **emotional_beat:** identity recontextualization
-- **structural_lesson:** Opening block establishes false safety before the reveal. Cliffhanger lands not on the reveal line but on what comes after it.
+- **structural_lesson:** Reveal that re-reads everything that came before. Ends not on the reveal sentence but on her face after the reveal.
 
 *Raat ke 2 baje ka police station — sardi ussi se zyaada thi jitni sochi thi. Woh chai leke aaya, ek kagzi cup mein. Aath din se jaanti thi use. Mangalwar ko usne uski jaan bachaayi thi. Achi aankhein thi uski — jis tarah ki aankhein sympathy ka dhong nahi karti.*
 
@@ -323,7 +488,36 @@ Tumhara naam Ashish nahi hai. Tumhara naam Ashish iss janam mein hai.
 
 ---
 
-### Scene M-2 — Midpoint
+### Scene M-2 — Opener
+
+- **genre:** MYTHOLOGY
+- **scene_position:** OPENER
+- **emotional_beat:** the dead are not done
+- **structural_lesson:** Supernatural arrives through the hyper-domestic and intimate. Grandmother's handwriting is more frightening than a ghost because it is personal. The impossible detail is saved for the end of the opening block.
+
+*Chennai. Ek 2BHK, top floor, June ki garmi. Raat ke 1 baje AC band kar di thi kyunki bill aaya tha. Table par woh diary thi jo usne pichhle mahine li thi — naya, laal cover, khali.*
+
+*Usne kal raat usme likha tha. Meeting notes, grocery list, ek half poem jo complete nahi ki.*
+
+*Aaj usne khola kuch aur dhundne ke liye.*
+
+*Pehli page par Nani ki handwriting thi.*
+
+*Woh Nani ki handwriting jaanti thi — teen saal ki thi jab Nani gayi, par yeh cheez body mein rehti hai. Woh khaas letter "k" ka mod.*
+
+*Usne diary mez par rakhi. Khuli. Ek haath peechhe.*
+
+*Khali diary thi yeh. Usne khud kharid ke layi thi. Plastic wrap abhi bhi drawer mein thi.*
+
+*Par pehli page par, Nani ki haath se:*
+
+*"Beta, darwaza khol ke so."*
+
+*Kal raat usne khidki band ki thi. Darwaza nahi.*
+
+---
+
+### Scene M-3 — Midpoint
 
 - **genre:** MYTHOLOGY
 - **scene_position:** MIDPOINT
@@ -352,12 +546,55 @@ Doctor ne kaha tha yeh nothing hai.
 
 ---
 
-### Scene M-3 — Cliffhanger
+### Scene M-4 — Midpoint
+
+- **genre:** MYTHOLOGY
+- **scene_position:** MIDPOINT
+- **emotional_beat:** the cost of the power becoming visible
+- **structural_lesson:** Supernatural cost arrives through the completely mundane — forgetting a recipe. The horror is in the gap being too specific to explain away. Character reaches for the ordinary and finds it gone.
+
+*Woh recipe dhundh raha tha. Maa ki dal ki. Woh hamesha se jaanta tha — usne sau baar banai thi, ghar par, hostel mein, jab bhi dil kiya. Haath ko pata tha, naap pata tha.*
+
+*Aaj haath ko pata nahi tha.*
+
+*Maa ka chehra yaad karne ki koshish ki — concrete, specific. Chashma. Saree ka rang jab woh khana banati thi. Haath mein kya pehenti thi.*
+
+*Kuch tha. Woh pakad nahi paaya.*
+
+*Kitchen mein khada raha. Chulha thanda tha. Sarso ke daane container mein the. Dal raat bhar bheeg chuki thi.*
+
+*Usne phone uthaya. Maa ki photo dhundne ke liye.*
+
+*Number tha. Photo nahi.*
+
+*Gallery mein scroll kiya — hazaron photos. Maa ek mein nahi thi.*
+
+*Woh hamesha photos leta tha. Hamesha.*
+
+Maa.
+
+*Ek ring. Do.*
+
+Bol beta.
+
+*Uss awaaz ko jaanta tha. Uss awaaz ko nahi bhulega.*
+
+*Par chehra nahi aa raha tha.*
+
+Kuch nahi. Bas aise hi.
+
+*Dal abhi bhi bheeg rahi thi. Usne chulha jalaya. Haath kuch yaad karne ki koshish karne laga.*
+
+*Haath ko pata nahi tha.*
+
+---
+
+### Scene M-5 — Cliffhanger
 
 - **genre:** MYTHOLOGY
 - **scene_position:** CLIFFHANGER
 - **emotional_beat:** the cost of remembering
-- **structural_lesson:** Opening block names the uncanny relationship and the physical wrongness before any dialogue. Cliffhanger lands on the held gesture — two things he is looking at — not on a question.
+- **structural_lesson:** The choice is between two losses, not gain vs loss. Cliffhanger lands on the moment before the choice is made, held on a gesture not a question.
 
 *Triveni Sangam par nadi, sunrise se teen ghante pehle. Paani utna thanda tha jitna socha nahi tha. Naav waala chala gaya tha. Woh akele the — woh, aur woh aurat jo aurat nahi thi, jo kabhi ek janam mein uski bahan thi jise woh yaad nahi karta.*
 
@@ -441,8 +678,33 @@ Then inject the anti-pattern for that genre, labeled:
 
 **Anti-pattern selection:** Always use the anti-pattern from the same genre. It shows the model the failure mode specific to that genre's common drift.
 
+**Anchor word watch:** After generation, flag any non-functional word appearing 3+ times across an episode. Common offenders: "still," "quiet," "slowly," "very," "presence." Rotate these in revision.
+
+## Scene inventory
+
+| ID | Genre | Position | Emotional Beat |
+|----|-------|----------|----------------|
+| R-1 | ROMANCE | OPENER | awkward proximity, class tension |
+| R-2 | ROMANCE | OPENER | mutual exposure, neither meant to be here |
+| R-3 | ROMANCE | MIDPOINT | quiet revelation through restraint |
+| R-4 | ROMANCE | MIDPOINT | almost-said things accumulating weight |
+| R-5 | ROMANCE | CLIFFHANGER | choice with a hidden cost |
+| R-6 | ROMANCE | CLIFFHANGER | door that opens when you stopped waiting |
+| T-1 | THRILLER | OPENER | sudden exposure, body before brain |
+| T-2 | THRILLER | OPENER | self-exposure, memory that isn't yours |
+| T-3 | THRILLER | MIDPOINT | paranoia confirmed by smallest evidence |
+| T-4 | THRILLER | MIDPOINT | the helper was always part of it |
+| T-5 | THRILLER | CLIFFHANGER | identity recontextualization |
+| M-1 | MYTHOLOGY | OPENER | mundane disrupted by the impossible |
+| M-2 | MYTHOLOGY | OPENER | the dead are not done |
+| M-3 | MYTHOLOGY | MIDPOINT | ancient weight collides with mortal scale |
+| M-4 | MYTHOLOGY | MIDPOINT | cost of the power becoming visible |
+| M-5 | MYTHOLOGY | CLIFFHANGER | cost of remembering |
+
 ## To expand
 
-- Add 3 more scenes per genre at OPENER position (most-retrieved position).
-- Re-curate after every 100 generations: identify which gold scenes correlate with higher episode-1-to-episode-2 retention; rotate out underperformers.
+- Add 1 CLIFFHANGER for THRILLER (currently thin at that position).
+- Add 1 MIDPOINT for MYTHOLOGY (currently only 2).
+- Re-curate after every 100 generations: identify which scenes correlate with higher episode-1-to-episode-2 retention; rotate out underperformers.
 - Add COMEDY/COMING-OF-AGE when genres expand beyond current three.
+- Add Bollywood Voice References as a separate file once dialogue corpus reaches ~30 exchanges.
