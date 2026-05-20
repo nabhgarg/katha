@@ -2638,7 +2638,9 @@ function _prepareForStorage(story) {
 
 async function saveGeneratedStory(story, creditMap) {
   const persistStory = _prepareForStorage(story); // swap data: URLs → Pollinations URLs
-  const newEntry = { id: Date.now(), story: persistStory, creditMap, createdAt: Date.now() };
+  const localId = Date.now();
+  // Mark pendingDbSave: true so _syncFromDb never discards this story before DB confirms it
+  const newEntry = { id: localId, story: persistStory, creditMap, createdAt: localId, pendingDbSave: true };
   // Try saving with progressively fewer old stories if quota is exceeded
   for (let maxKeep = 4; maxKeep >= 0; maxKeep--) {
     try {
@@ -2659,9 +2661,16 @@ async function saveGeneratedStory(story, creditMap) {
   }
   try {
     await _saveStoryToDb(dbStory, creditMap);
+    // DB confirmed — clear the pending flag in localStorage so _syncFromDb replaces it with the DB copy
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORIES_KEY) || '[]');
+      const idx = saved.findIndex(e => e.id === localId);
+      if (idx !== -1) { delete saved[idx].pendingDbSave; localStorage.setItem(STORIES_KEY, JSON.stringify(saved)); }
+    } catch(e) { /* ignore — next _syncFromDb will clean up */ }
     _storiesCacheClear();
   } catch(e) {
     console.warn('DB save failed:', e.message);
+    // Story stays in localStorage with pendingDbSave: true — _syncFromDb will preserve it
     showToast('⚠ Story saved locally but not synced — ' + (e.message || 'try signing in again'));
   }
 }
@@ -3121,9 +3130,13 @@ async function _loadStoriesFromDb() {
 async function _syncFromDb() {
   const dbStories = await _loadStoriesFromDb();
   if (!dbStories) return;
-  for (let maxKeep = 5; maxKeep >= 0; maxKeep--) {
+  // Preserve any locally-saved stories not yet confirmed to the DB (pendingDbSave: true).
+  // Without this, a failed DB save followed by a sync would permanently lose the story.
+  const localPending = loadSavedStories().filter(s => s.pendingDbSave);
+  const merged = [...localPending, ...dbStories];
+  for (let maxKeep = merged.length; maxKeep >= 0; maxKeep--) {
     try {
-      localStorage.setItem(STORIES_KEY, JSON.stringify(dbStories.slice(0, maxKeep)));
+      localStorage.setItem(STORIES_KEY, JSON.stringify(merged.slice(0, maxKeep)));
       break;
     } catch(e) {
       if (maxKeep === 0) console.warn('_syncFromDb: localStorage full, skipping local cache');
