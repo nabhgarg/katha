@@ -1763,6 +1763,11 @@ const CREDIT_MAP = [
 let CURRENT_STORY = STORY;
 let CURRENT_CREDIT_MAP = CREDIT_MAP;
 
+/* ---------- V3 ENGINE FLAG ---------- */
+const USE_V3_ENGINE = true;
+let _v3DbRowId = null;
+let _v3LocalId = null;
+
 /* ---------- SCREEN ROUTER ---------- */
 function showScreen(id) {
   // cleanup generating timers if leaving
@@ -1861,12 +1866,21 @@ function renderScene() {
     img.style.animation = 'kenBurns 8s ease-out forwards';
   }
 
-  // New format: narrator + dialogues[]. Old format: hl + body (backward compat)
-  const dialogueText = (s.dialogues && s.dialogues.length)
-    ? s.dialogues.join('\n')
-    : (s.hl || '');
-  document.getElementById('sub-hl').textContent = dialogueText;
-  document.getElementById('sub-body').textContent = s.narrator || s.body || '';
+  const hlEl = document.getElementById('sub-hl');
+  const bodyEl = document.getElementById('sub-body');
+  if (s.script) {
+    // V3 format: parse *action* / dialogue interleaved script string
+    const nodes = parseScriptStringToUiNodes(s.script);
+    const actionLines = nodes.filter(n => n.type === 'ACTION_PROSE').map(n => n.text);
+    const dialogueLines = nodes.filter(n => n.type === 'CHARACTER_DIALOGUE').map(n => n.text);
+    hlEl.textContent = dialogueLines.join('\n') || '—';
+    bodyEl.textContent = actionLines.join(' ');
+  } else {
+    // V1 format: narrator + dialogues[]. Old format: hl + body (backward compat)
+    const dialogueText = (s.dialogues && s.dialogues.length) ? s.dialogues.join('\n') : (s.hl || '');
+    hlEl.textContent = dialogueText;
+    bodyEl.textContent = s.narrator || s.body || '';
+  }
 
   // Show back button only when there's somewhere to go back to
   const backBtn = document.getElementById('player-back-btn');
@@ -1996,6 +2010,20 @@ function makeChoice(opt) {
     if (ST.ep >= CURRENT_STORY.episodes.length) {
       renderEnd();
       showScreen('end');
+      return;
+    }
+    const nextScenes = currentSceneList();
+    if (nextScenes && nextScenes.length > 0) {
+      renderScene();
+      showScreen('player');
+    } else if (CURRENT_STORY.version === 'v3') {
+      // Background still generating this episode — poll until ready
+      showToast('✨ Loading next episode...');
+      const poll = setInterval(() => {
+        const s = currentSceneList();
+        if (s && s.length > 0) { clearInterval(poll); renderScene(); showScreen('player'); }
+      }, 800);
+      setTimeout(() => clearInterval(poll), 30000);
     } else {
       renderScene();
       showScreen('player');
@@ -2174,6 +2202,178 @@ const IMG_STYLE = {
     suffix: 'photorealistic, cinematic composition, no text, no faces, no watermark, mobile vertical format'
   }
 };
+
+/* ---------- V3: GOLDEN SCENES LIBRARY ---------- */
+const GOLDEN_SCENES = [
+  {
+    genre: 'ROMANCE', scene_position: 'OPENER',
+    script: `*The plate slips. Daal splashes across her white kurta — a brown bloom spreading near the hem. Around them, plate clatter. Someone's aunty laughs too loud at something across the lawn.*
+Yaar I'm so sorry.
+*He's already pulling napkins from the next table, more than he needs. His shirt cuff is yellowed at the edge from too many washes. She watches his hand shake as he holds the wad out, not touching her.*
+It's fine.
+No it's not fine, this is khaadi na? It's gonna stain.
+*She takes the napkins. Their fingers don't touch. The DJ across the lawn is playing something from 2014. He doesn't move.*
+You don't know me.
+Plate twenty-two. You signed before me.
+*A pause. She's reading him now — the shoes that don't match the kurta, the watch that does.*
+You read the seating chart?
+I was bored.
+Okay. I'm Maya.
+*He nods, doesn't say his name. The buffet line shifts behind them. Someone calls him from inside the hall — a name she doesn't catch. He looks at her once more, then leaves. Her plate is still empty.*`
+  },
+  {
+    genre: 'ROMANCE', scene_position: 'MIDPOINT',
+    script: `*The hospital corridor smells of phenyl and old samosa. 11:47 p.m. The vending machine has been making a low hum for forty minutes. She is on her fourth paper cup of chai. He sits two seats away, not next to her.*
+You don't have to stay.
+I know.
+Then —
+*A nurse pushes a trolley past. The wheel squeaks once, twice, then is gone. He watches the trolley until it turns the corner.*
+I sent the email.
+*She looks at him. He doesn't look back.*
+About Toronto?
+About Toronto.
+When do you —
+September.
+*She nods. Once. The kind of nod people do when they need their face to keep working.*
+Cool.
+Cool.
+*The vending machine clicks. Something inside it has finished or started. Neither of them gets up. After a minute her phone lights up — her father is out of surgery — and she stands so fast the paper cup tips. He catches it before it falls. Their hands touch this time. Neither of them mentions it.*`
+  },
+  {
+    genre: 'ROMANCE', scene_position: 'CLIFFHANGER',
+    script: `*Terminal 2. Departures. 4:18 a.m. The Wi-Fi is asking her to reconnect for the third time. She is sitting on her trolley because there are no benches left. He is somewhere past security. She does not know exactly where.*
+*She has typed the message twice. Both times she deleted it. The third version is shorter.*
+tum ruk jao
+*Three words. She is staring at them like they might rearrange themselves into something easier to send. Around her, an announcement plays in three languages. A boy is crying because his mother won't let him eat the chocolate yet. Outside, the sky is starting to do the thing it does before sunrise, where it stops being one colour.*
+*She looks up. He is standing at the security exit, boarding pass still in his hand, looking at her.*
+*He has not gone in.*
+*She does not put down the phone. He does not walk forward. The cursor blinks. The cursor blinks. The cursor blinks.*`
+  },
+  {
+    genre: 'THRILLER', scene_position: 'OPENER',
+    script: `*She sees it through the kitchen window — the shape moving inside the flat across the courtyard, where the lights have been off for three weeks. A figure passes the window. Then passes it again. Then stops.*
+*Her hand is still under the tap. The water is still running. She does not move. She does not move. She does not move.*
+*The figure across the courtyard turns its head.*
+*She ducks below the counter so fast her elbow hits the cabinet. Something inside the cabinet falls — a steel katori — and the sound is enormous. She holds her breath. Her landlord's TV is on downstairs. Some news anchor is shouting. She counts to ten. Then twenty. Then she crawls — actually crawls, on her hands and the side of one knee — to the switchboard and turns off the kitchen light.*
+*In the dark she allows herself to breathe.*
+*Her phone is on the counter, two feet above her head. To reach it she will have to stand up.*
+Phone. Phone, phone, phone.
+*She closes her eyes. Counts again. Reaches up.*
+*Her fingers find the phone. The screen lights up under her palm — a notification, a delivery confirmation from somewhere — and through the window across the courtyard, the figure turns toward the light.*`
+  },
+  {
+    genre: 'THRILLER', scene_position: 'MIDPOINT',
+    script: `*The door is unlocked. She locks the door every morning. She locks the door every morning.*
+*She stands in the doorway with her keys still in her hand. Inside, the flat looks exactly the way she left it. The fan is off. The curtain is drawn. Her chappals are by the shoe rack, in the slightly diagonal way she leaves them. The kitchen tap is not dripping. Everything is the way she left it.*
+*Everything except the door.*
+*She does not go in. She steps back into the corridor. The corridor lights are the cheap white tube kind, and they buzz, and she is suddenly aware that the buzz is louder than it usually is.*
+*She calls him.*
+You okay?
+*The watchman on the other end takes too long to answer.*
+Madam, kuch hua kya?
+Mera ghar ka darwaza khula tha.
+*Pause.*
+Aap building mein ho?
+Haan.
+*Another pause. Longer this time. She hears him breathing.*
+Madam, aap building se bahar nikliye. Abhi.`
+  },
+  {
+    genre: 'THRILLER', scene_position: 'CLIFFHANGER',
+    script: `*The police station at 2 a.m. is colder than she expected. He brings her chai in a paper cup. She has known him eight days. He saved her life on Tuesday.*
+Aap theek ho na?
+Haan. Bas... thoda shocked.
+*He nods. He has nice eyes, she has decided. The kind of eyes that don't perform sympathy.*
+Aapko ghar drop kar dunga. Just give me ten minutes.
+Thank you.
+*He turns to leave. At the door he stops, doesn't turn around.*
+You know what he kept saying, na? The one we caught?
+Kya?
+*He still doesn't turn around.*
+He kept saying, "tum logon ko pata bhi nahi tum kis ke saath khel rahe ho." Same line. Bees baar boli usne.
+*She nods, smiles, takes a sip of chai.*
+*Then she stops smiling.*
+*Because that is the line. That is the exact line. Word for word. Not from the man they caught.*
+*From the voicemail on Tuesday morning. The voicemail she has not shown to anyone. The voicemail she has not shown to him.*
+*He is still at the door. With his back to her. Waiting.*`
+  },
+  {
+    genre: 'MYTHOLOGY', scene_position: 'OPENER',
+    script: `*The rooftop of his Goregaon building, twelfth floor, 6:42 p.m. He is smoking a cigarette he is not supposed to smoke. Below him, traffic on the Western Express is doing what it does at this hour. He is twenty-six, has a job, has a girlfriend, has been told he is doing fine.*
+*The crows arrive first.*
+*Not in the casual way crows arrive — one at a time, picking at something. They land all at once. Forty, maybe fifty of them. They land on the parapet around him, on the water tank behind him, on the railing of the staircase. They land and then they do not move. They do not caw. They sit and look at him.*
+*He laughs once, because what else is there to do, and the laugh comes out high and wrong.*
+*The man on the staircase is suddenly there. He was not there a second ago. He is wearing a grey kurta the colour of old stone. He looks like nobody — like an uncle, like a building secretary, like anyone.*
+Ashish.
+*He has not told this man his name.*
+Sir aap kaun ho?
+*The man does not answer. He looks at the crows. The crows look at him.*
+Bahut waqt ho gaya. Tumhe yaad nahi hoga.
+Sir mera naam Ashish nahi hai. Aap kisi aur ko —
+*The man turns. His eyes are the kind of brown that has dust in it. Old dust.*
+Tumhara naam Ashish nahi hai. Tumhara naam Ashish iss janam mein hai.`
+  },
+  {
+    genre: 'MYTHOLOGY', scene_position: 'MIDPOINT',
+    script: `*The basement of the Kashi Vishwanath temple in old Varanasi. Forty-seven steps below ground level. The walls are wet in a way she cannot explain — there is no source, no leak, just a slow constant sheen. Her torch keeps flickering. The pandit who brought her this far has not come down. He is waiting somewhere above.*
+*The inscription is on the back wall. Sanskrit, mostly. Some of the symbols are not Sanskrit.*
+*She pulls back her sleeve.*
+*The mark on her left wrist — the one her mother said was a birthmark, the one she got laser-removed twice and that came back twice — is on the wall. Carved into the stone. The exact shape. The exact orientation.*
+*She sits down on the cold floor. Her knees give first. She sits and she looks at the wall and she does not cry, because crying is something her body remembers how to do later, in safe places, with familiar light.*
+Mummy ne kaha tha yeh nothing hai.
+*She is talking to nobody.*
+Doctor ne kaha tha yeh nothing hai.
+*The torch flickers again. In the half-second of dark, she hears something move behind her. Not a footstep. A breath.*
+*When the torch comes back on, the inscription has changed. One more symbol. At the bottom. Freshly carved. Still warm.*`
+  },
+  {
+    genre: 'MYTHOLOGY', scene_position: 'CLIFFHANGER',
+    script: `*The river at Triveni Sangam, three hours before sunrise. The water is colder than he expected. The boatman has left them. They are alone — he and the woman who is not a woman, who was once his sister in a life he does not remember.*
+Tum mujhe woh sab dikha sakti ho?
+Haan.
+Aur uske badle?
+*She is looking at the water. The water is doing something the water should not be doing — moving slightly against the current, near her feet.*
+Iss janam ki yaadein. Sab.
+Sab?
+Tumhari maa. Tumhari biwi. Tumhari beti. Tumhara naam.
+*He laughs. The laugh has no joy in it.*
+Yeh kaisa exchange hai.
+*She turns and looks at him for the first time. Her eyes are the same eyes from the rooftop, the same eyes that have been waiting for him for what she calls a long time and he cannot yet count.*
+Tumne mujhe khud bulaaya tha. Pichle janam mein.
+*He does not remember calling her. That, he thinks, is exactly the problem.*
+*The water keeps doing the thing it should not be doing. Somewhere on the bank, a single conch begins to sound. Long. Steady. Closer than it should be.*
+*He looks at his phone. There is a message from his daughter. It is a video of her first steps. He has not watched it yet.*
+*He looks at the woman.*
+*He looks at the phone.*
+*He does not move.*`
+  }
+];
+
+function selectGoldenExamples(genre, episodeNumber) {
+  const positionMap = { 1: ['OPENER', 'MIDPOINT'], 6: ['CLIFFHANGER', 'MIDPOINT'] };
+  const positions = positionMap[episodeNumber] || ['MIDPOINT', 'CLIFFHANGER'];
+  return positions.map(pos =>
+    GOLDEN_SCENES.find(s => s.genre === genre && s.scene_position === pos) ||
+    GOLDEN_SCENES.find(s => s.scene_position === pos)
+  ).filter(Boolean);
+}
+
+/* ---------- V3: SCRIPT PARSER ---------- */
+function parseScriptStringToUiNodes(scriptString) {
+  const nodes = [];
+  const pattern = /(\*[^*]+\*)|([^*]+)/g;
+  let match;
+  while ((match = pattern.exec(scriptString)) !== null) {
+    if (match[1]) {
+      const action = match[1].replace(/\*/g, '').trim();
+      if (action) nodes.push({ type: 'ACTION_PROSE', text: action });
+    } else if (match[2]) {
+      const lines = match[2].split('\n').map(l => l.trim()).filter(Boolean);
+      for (const l of lines) nodes.push({ type: 'CHARACTER_DIALOGUE', text: l });
+    }
+  }
+  return nodes;
+}
 
 /* ---------- PIPELINE STAGE FUNCTIONS ---------- */
 async function stageBible(userPrompt) {
@@ -2355,10 +2555,17 @@ const GEN_STEP_LABELS = [
   'Putting it all together'
 ];
 
-function initGenList() {
+const GEN_STEP_LABELS_V3 = [
+  'Designing your story world',
+  'Writing Episode 1',
+  'Quality check',
+  'Opening your Katha'
+];
+
+function initGenList(labels) {
   const list = document.getElementById('check-list');
   if (!list) return;
-  list.innerHTML = GEN_STEP_LABELS.map(s => `<li><span class="ck"></span>${s}</li>`).join('');
+  list.innerHTML = (labels || GEN_STEP_LABELS).map(s => `<li><span class="ck"></span>${s}</li>`).join('');
 }
 
 function setGenItem(idx, state) {
@@ -2564,6 +2771,514 @@ async function runPipeline(userPrompt) {
   }
 }
 
+/* ---------- V3 PIPELINE ---------- */
+
+async function stageArchitect(userPrompt) {
+  const schema = `{
+  "genre": "ROMANCE|THRILLER|MYTHOLOGY",
+  "title": "2-4 word Hinglish title",
+  "city": "Indian city",
+  "secret": "one sentence hidden truth driving subtext across all 6 episodes",
+  "logline": "one sentence: protagonist, disruption, stakes",
+  "story_rules": ["permanent fact about protagonist", "key plot fact that cannot be contradicted", "unique world detail"],
+  "protagonist": {
+    "name": "first name",
+    "speech_tic": "their verbal habit in one phrase",
+    "voice_card": ["sample dialogue line 1", "sample dialogue line 2 — different emotion", "sample dialogue line 3 — under stress"]
+  },
+  "characters": [{"name": "first name", "role": "relationship to protagonist and story function"}],
+  "episodes": [
+    {
+      "episode_number": 1,
+      "title": "2-3 words Hinglish",
+      "scene_objectives": ["Scene 1 — mid-action entry, no backstory", "Scene 2 — complication or escalation", "Scene 3 — revelation that recontextualizes Scene 1"],
+      "target_cliffhanger": "exact sentence Scene 3 must end on — makes reader desperate to choose",
+      "choice_question": "Hinglish dilemma question",
+      "choice_a": {"label": "3-5 words", "subtext": "hidden cost of this path"},
+      "choice_b": {"label": "3-5 words", "subtext": "hidden cost of this path"}
+    }
+  ]
+}`;
+
+  return oaiChat([
+    { role: 'system', content: `You are the lead story architect for Katha, an Indian interactive fiction app.
+
+GENRE FRAMEWORK:
+- ROMANCE: Modern Indian setting. Class, family, or generational tension is the dominant conflict. Romance is obstructed by social structure, not personality.
+- THRILLER: Paranoia or high-stakes survival. Protagonist starts ordinary; the world they wake into is not.
+- MYTHOLOGY: A modern character is disrupted by an ancient force they did not believe in. The supernatural arrives through physical wrongness, never through music or vocabulary.
+
+CORE PRINCIPLES:
+1. The "secret" drives subtext in every scene even when never named directly.
+2. The protagonist's voice_card (3 sample lines) must show their natural register and verbal habit.
+3. story_rules are permanent — no later episode can contradict them.
+4. Episodes must escalate. Ep1 establishes; eps 2-5 complicate and branch; ep6 resolves.
+5. target_cliffhanger for each episode is the exact sentence Scene 3 must end on — make it a burning question or an impossible image.
+6. choice_a and choice_b must feel morally opposite — no clearly correct answer.
+
+OUTPUT: A single valid JSON object. No markdown fences. Start with { and end with }.` },
+    { role: 'user', content: `User premise: "${userPrompt}"
+
+Build the complete blueprint. Include all 6 episodes. Episodes 1-5 have choice_question, choice_a, choice_b. Episode 6 omits those fields (no choice, it resolves).
+
+For episodes 2-6, also include "scene_objectives_a" and "scene_objectives_b" (separate scene jobs for players who took choice A vs B in the previous episode).
+
+Schema:
+${schema}` }
+  ], 'gpt-4o');
+}
+
+async function stageScenesV3({ blueprint, episodeNumber, story_state, prev_last_sentence, choice_label, banned_lines, examples }) {
+  const epPlan = blueprint.episodes[episodeNumber - 1];
+  const isFirst = episodeNumber === 1;
+  const sceneObjectives = choice_label
+    ? (epPlan.scene_objectives_a || epPlan.scene_objectives || [])
+    : (epPlan.scene_objectives_b || epPlan.scene_objectives || epPlan.scene_objectives_a || []);
+  const obj1 = sceneObjectives[0] || 'Open mid-action';
+  const obj2 = sceneObjectives[1] || 'Escalate the conflict';
+  const obj3 = sceneObjectives[2] || 'End on the target cliffhanger';
+
+  const stateBlock = story_state
+    ? `STORY STATE (maintain continuity from previous episode):\n${JSON.stringify(story_state)}`
+    : '';
+  const prevBlock = prev_last_sentence
+    ? `Previous episode's last sentence: "${prev_last_sentence}" — Scene 1 must flow from this.`
+    : 'This is Episode 1 — open mid-action, zero backstory or exposition.';
+  const choiceBlock = choice_label
+    ? `Player arrived here by choosing: "${choice_label}" — its consequence must be visible in Scene 1.`
+    : '';
+  const bannedBlock = (banned_lines && banned_lines.length)
+    ? `BANNED PHRASES (do NOT repeat or paraphrase):\n${banned_lines.slice(-24).join('\n')}`
+    : '';
+
+  const examplesBlock = examples && examples.length
+    ? examples.map((ex, i) =>
+        `REFERENCE SCENE ${i + 1} (${ex.genre} ${ex.scene_position} — match cadence and sensory specificity, do NOT copy content):\n${ex.script}`
+      ).join('\n\n')
+    : '';
+
+  const antiPattern = `ANTI-PATTERN (do NOT write like this):
+Rahul was feeling very nervous. The room felt cold and tense. He said: "Priya, I am worried about this situation." Priya looked at him with concern in her eyes. She said: "I understand your feelings." There was a lot of tension between them.`;
+
+  return oaiChat([
+    { role: 'system', content: `You write one episode of three scenes for Katha, an Indian interactive fiction app.
+
+OUTPUT FORMAT (CRITICAL):
+- Each scene is a single string in the "script" field.
+- Wrap action/setting/internal state/physical movement in *asterisks*: *like this*.
+- Character dialogue goes outside asterisks. No quotation marks. No attribution tags ("Rahul said:" is forbidden).
+- Action and dialogue INTERLEAVE within the script string — do not batch all action then all dialogue.
+
+LANGUAGE:
+- Roman-script Hinglish — Hindi-English code-switching the way urban Indian 18-30 year olds actually speak.
+- Code-switch AT the emotionally loaded word, not at random.
+- Concrete object similes over adjective declarations: "like a glass placed too close to a table edge" > "scared."
+- Repetition with one altered element does emotional work.
+- Shortest sentence in a scene is the heaviest. Land scenes on short final sentences.
+- Direct address (beta, yaar, sir, bhaiya) is the load-bearing texture of Indian dialogue.
+
+CRAFT:
+- Open scenes mid-action. No backstory or exposition.
+- One concrete sensory detail per beat — smell, sound, texture, temperature. Generic is forbidden; specific is required.
+- Show emotion through action, never through statement.
+- Scene 3 MUST end with this exact sentence word for word: "${epPlan.target_cliffhanger || ''}"
+
+STORY CONTEXT:
+Genre: ${blueprint.genre} | City: ${blueprint.city}
+Story rules: ${(blueprint.story_rules || []).join(' | ')}
+Secret (drives subtext — never name it directly): ${blueprint.secret || ''}
+Protagonist: ${blueprint.protagonist?.name}. Speech tic: ${blueprint.protagonist?.speech_tic}
+Characters: ${(blueprint.characters || []).map(c => `${c.name} (${c.role})`).join(', ')}
+
+PROTAGONIST VOICE CARD:
+${(blueprint.protagonist?.voice_card || []).map((l, i) => `${i + 1}. ${l}`).join('\n')}
+
+${stateBlock}
+${prevBlock}
+${choiceBlock}
+${bannedBlock}
+
+${examplesBlock}
+
+${antiPattern}
+
+OUTPUT: Single valid JSON object, no markdown fences.` },
+    { role: 'user', content: `Write Episode ${episodeNumber} of "${blueprint.title}".
+
+Scene objectives:
+1. ${obj1}
+2. ${obj2}
+3. ${obj3}
+
+Output:
+{
+  "scenes": [
+    {"scene_number": 1, "script": "..."},
+    {"scene_number": 2, "script": "..."},
+    {"scene_number": 3, "script": "... *ending on the target cliffhanger*"}
+  ]
+}` }
+  ]);
+}
+
+async function stageValidate(ep1Scenes, blueprint) {
+  const ep1Plan = blueprint.episodes[0];
+  const scriptsText = (ep1Scenes?.scenes || []).map((s, i) => `Scene ${i + 1}:\n${s.script}`).join('\n\n---\n\n');
+  return oaiChat([
+    { role: 'system', content: `You audit one episode of three scenes for structural quality before it ships to players.
+
+CHECKS:
+1. Does Scene 3 end on the exact target_cliffhanger sentence?
+2. Does each scene open mid-action with no exposition?
+3. Is there at least one concrete sensory detail per scene (specific, not generic)?
+4. Are emotions shown through action, not stated?
+5. Does dialogue avoid attribution tags?
+6. Does *action* and dialogue interleave (not batched narration then dialogue)?
+7. Does code-switching happen at the emotionally loaded word?
+
+If all checks pass: set pass true.
+If any check fails: set pass false, identify the single worst-failing scene (target_node 1/2/3), and produce a corrected revised_script for THAT SCENE ONLY.
+
+Output raw JSON only, no markdown fences:
+{"pass": true|false, "issues": ["..."], "target_node": 1|2|3|null, "revised_script": "..."|null}` },
+    { role: 'user', content: `Story: "${blueprint.title}" (${blueprint.genre})
+Target cliffhanger: "${ep1Plan?.target_cliffhanger || ''}"
+Story rules: ${(blueprint.story_rules || []).join(' | ')}
+
+Episode 1 scenes:
+${scriptsText}` }
+  ]);
+}
+
+async function stageRecomputeState(prevState, epScenes, blueprint) {
+  const scenes = epScenes?.scenes || [];
+  const scriptText = scenes.map((s, i) => `Scene ${i + 1}:\n${s.script || ''}`).join('\n\n');
+  const empty = { relationships: [], active_mysteries: [], emotional_state: '', objects: [], character_goals: [] };
+  return oaiChat([
+    { role: 'system', content: `You update a compact story-state memory vector after each episode of an interactive fiction app. The memory is passed to the next episode's writer to prevent continuity drift. Token budget: under 150 tokens total. Be ruthlessly compact.
+
+Update rules:
+- relationships: only update pairs where state has shifted
+- active_mysteries: add new unresolved hooks; remove ones resolved this episode
+- emotional_state: one phrase for protagonist's current dominant feeling
+- objects: only items that will plausibly matter in a future scene
+- character_goals: only update if a goal has changed
+
+Output raw JSON only, no markdown fences.` },
+    { role: 'user', content: `Genre: ${blueprint.genre}. Protagonist: ${blueprint.protagonist?.name}.
+
+Current state: ${JSON.stringify(prevState || empty)}
+
+Episode scripts:
+${scriptText}
+
+Return the updated story_state JSON.` }
+  ]);
+}
+
+function extractBannedLinesV3(epResult) {
+  const lines = [];
+  for (const s of (epResult?.scenes || [])) {
+    if (!s.script) continue;
+    const nodes = parseScriptStringToUiNodes(s.script);
+    for (const n of nodes) {
+      n.text.split(/[.!?।]+/).map(x => x.trim()).filter(x => x.length > 12).forEach(x => lines.push(x));
+    }
+  }
+  return lines;
+}
+
+function extractLastSentenceV3(epResult) {
+  const scenes = epResult?.scenes || [];
+  if (!scenes.length) return '';
+  const last = scenes[scenes.length - 1];
+  if (!last?.script) return '';
+  const text = last.script.replace(/\*/g, '').trim();
+  const parts = text.split(/[.!?।]+/).map(s => s.trim()).filter(Boolean);
+  return parts[parts.length - 1] || '';
+}
+
+function buildCoverPromptV3(blueprint) {
+  const style = IMG_STYLE[blueprint.genre] || IMG_STYLE.MYTHOLOGY;
+  return style.prefix + ' ' + (blueprint.logline || blueprint.title) + ' ' + style.suffix;
+}
+
+function assembleStoryV3(blueprint, allEpisodes, coverImg) {
+  const episodes = blueprint.episodes.map((epPlan, i) => {
+    const epData = allEpisodes ? allEpisodes[i] : null;
+    const isFirst = i === 0;
+    const isLast = i === blueprint.episodes.length - 1;
+
+    if (isFirst) {
+      return {
+        title: epPlan.title || 'Episode 1',
+        scenes: epData?.scenes || [],
+        choice: {
+          q: epPlan.choice_question || 'Aage kya hoga?',
+          A: { text: epPlan.choice_a?.label || 'Option A', sub: epPlan.choice_a?.subtext || '' },
+          B: { text: epPlan.choice_b?.label || 'Option B', sub: epPlan.choice_b?.subtext || '' }
+        }
+      };
+    }
+
+    const scenesA = epData?.A?.scenes || [];
+    const scenesB = epData?.B?.scenes || (scenesA.length ? scenesA : []);
+
+    if (isLast) {
+      return { title: epPlan.title || 'Ek Ant', scenesA, scenesB };
+    }
+
+    return {
+      title: epPlan.title || ('Episode ' + (i + 1)),
+      scenesA,
+      scenesB,
+      choice: {
+        q: epPlan.choice_question || 'Aage kya hoga?',
+        A: { text: epPlan.choice_a?.label || 'Option A', sub: epPlan.choice_a?.subtext || '' },
+        B: { text: epPlan.choice_b?.label || 'Option B', sub: epPlan.choice_b?.subtext || '' }
+      }
+    };
+  });
+
+  return {
+    title: blueprint.title,
+    genre: blueprint.genre,
+    cover_img: coverImg || '',
+    version: 'v3',
+    episodes
+  };
+}
+
+function assembleCreditsV3(blueprint) {
+  return (blueprint.episodes || []).slice(0, 5).filter(ep => ep.choice_a).map((ep, i) => ({
+    name: i === 0 ? (blueprint.protagonist?.name || 'PROTAGONIST').toUpperCase() : (ep.title || ('Episode ' + (i + 1))).toUpperCase(),
+    A: ep.choice_a?.subtext || ep.choice_a?.label || '',
+    B: ep.choice_b?.subtext || ep.choice_b?.label || ''
+  }));
+}
+
+async function _saveStoryToDbInitial(story, creditMap) {
+  if (!_supabase) throw new Error('Supabase not initialized');
+  const { data: { session } } = await _supabase.auth.getSession();
+  const userId = session?.user?.id || _currentUser?.id;
+  if (!userId) throw new Error('No active session — please sign in again');
+  const safe = JSON.parse(JSON.stringify(story));
+  const stripB64 = (o) => { if (o && typeof o === 'object') { for (const k in o) { if (typeof o[k] === 'string' && o[k].startsWith('data:')) o[k] = ''; else if (typeof o[k] === 'object') stripB64(o[k]); } } };
+  stripB64(safe);
+  const payloadLen = JSON.stringify(safe).length;
+  if (payloadLen > 500000) throw new Error('Story payload too large: ' + payloadLen + ' bytes');
+  const { data, error } = await _supabase.from('stories').insert({ user_id: userId, story_data: safe, credit_map: creditMap }).select('id').single();
+  if (error) throw new Error(error.message);
+  return data.id;
+}
+
+async function _updateStoryInDb(rowId, story, creditMap) {
+  if (!_supabase || !rowId) return;
+  const safe = JSON.parse(JSON.stringify(story));
+  const stripB64 = (o) => { if (o && typeof o === 'object') { for (const k in o) { if (typeof o[k] === 'string' && o[k].startsWith('data:')) o[k] = ''; else if (typeof o[k] === 'object') stripB64(o[k]); } } };
+  stripB64(safe);
+  const update = { story_data: safe };
+  if (creditMap !== undefined) update.credit_map = creditMap;
+  const { error } = await _supabase.from('stories').update(update).eq('id', rowId);
+  if (error) console.warn('_updateStoryInDb error:', error.message);
+}
+
+function _updateV3InLocalStorage(localId) {
+  if (!localId || !CURRENT_STORY) return;
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORIES_KEY) || '[]');
+    const idx = saved.findIndex(e => e.id === localId);
+    if (idx !== -1) {
+      saved[idx].story = _prepareForStorage(CURRENT_STORY);
+      localStorage.setItem(STORIES_KEY, JSON.stringify(saved));
+    }
+  } catch(e) { /* quota — non-critical */ }
+}
+
+async function generateRemainingEpisodesInBackground(blueprint, ep1Scenes, dbRowId, localId, creditMap) {
+  try {
+    let story_state = null;
+    try { story_state = await stageRecomputeState(null, ep1Scenes, blueprint); } catch(e) { /* continue without state */ }
+
+    let banned_lines = extractBannedLinesV3(ep1Scenes);
+    let prev_last_sentence = extractLastSentenceV3(ep1Scenes);
+
+    for (let n = 2; n <= 6; n++) {
+      const prevEpPlan = blueprint.episodes[n - 2];
+      const prevChoiceA = prevEpPlan?.choice_a?.label || '';
+      const prevChoiceB = prevEpPlan?.choice_b?.label || '';
+      const examples = selectGoldenExamples(blueprint.genre, n);
+      const currentBanned = [...banned_lines];
+
+      let branchA, branchB;
+      try {
+        [branchA, branchB] = await Promise.all([
+          stageScenesV3({ blueprint, episodeNumber: n, story_state, prev_last_sentence, choice_label: prevChoiceA, banned_lines: currentBanned, examples }),
+          stageScenesV3({ blueprint, episodeNumber: n, story_state, prev_last_sentence, choice_label: prevChoiceB, banned_lines: currentBanned, examples })
+        ]);
+      } catch(e) {
+        console.warn(`Background ep${n} failed:`, e.message);
+        continue;
+      }
+
+      if (!branchA?.scenes?.length || !branchB?.scenes?.length) continue;
+
+      // Update in-memory CURRENT_STORY so player can advance immediately
+      if (CURRENT_STORY && CURRENT_STORY.version === 'v3' && CURRENT_STORY.episodes[n - 1]) {
+        CURRENT_STORY.episodes[n - 1].scenesA = branchA.scenes;
+        CURRENT_STORY.episodes[n - 1].scenesB = branchB.scenes;
+      }
+
+      _updateV3InLocalStorage(localId);
+
+      if (dbRowId) {
+        const dbStory = JSON.parse(JSON.stringify(CURRENT_STORY));
+        dbStory._creator = _getDisplayName() || 'Katha User';
+        await _updateStoryInDb(dbRowId, dbStory, creditMap).catch(e => console.warn('Checkpoint UPDATE failed:', e.message));
+        _storiesCacheClear();
+      }
+
+      banned_lines.push(...extractBannedLinesV3(branchA), ...extractBannedLinesV3(branchB));
+      if (banned_lines.length > 72) banned_lines.splice(0, banned_lines.length - 72);
+      prev_last_sentence = extractLastSentenceV3(branchA);
+
+      try { story_state = await stageRecomputeState(story_state, branchA, blueprint); } catch(e) { /* keep prev */ }
+    }
+
+    // Generate cover image after all text is done
+    try {
+      const coverImg = await oaiImage(buildCoverPromptV3(blueprint));
+      if (CURRENT_STORY && CURRENT_STORY.version === 'v3') {
+        CURRENT_STORY.cover_img = coverImg;
+      }
+      _updateV3InLocalStorage(localId);
+      if (dbRowId) {
+        const dbStory = JSON.parse(JSON.stringify(CURRENT_STORY));
+        dbStory._creator = _getDisplayName() || 'Katha User';
+        if (dbStory.cover_img?.startsWith('data:')) {
+          const url = await _uploadCoverToStorage(dbStory.cover_img);
+          dbStory.cover_img = url || '';
+          if (CURRENT_STORY && url) CURRENT_STORY.cover_img = url;
+        }
+        await _updateStoryInDb(dbRowId, dbStory, creditMap).catch(e => console.warn('Cover UPDATE failed:', e.message));
+        _storiesCacheClear();
+      }
+      renderProfileMyStories();
+      renderFeedGenerated();
+    } catch(e) { console.warn('Cover generation failed:', e.message); }
+
+  } catch(e) { console.warn('Background generation error:', e.message); }
+}
+
+async function runPipelineV3(userPrompt) {
+  initGenList(GEN_STEP_LABELS_V3);
+  document.getElementById('gen-error').style.display = 'none';
+  showGeneratingCard();
+
+  if (_supabase) { try { await _supabase.auth.getSession(); } catch(e) {} }
+
+  try {
+    // Stage 1: Architect — single gpt-4o call replaces Bible + Arc
+    setGenItem(0, 'active');
+    setGenEta('Estimated: 45–60 seconds');
+    const blueprint = await stageArchitect(userPrompt);
+    if (!blueprint?.episodes?.length) throw new Error('Architect returned no episodes — please try again.');
+    // Ensure we have 6 episodes (pad if model returned fewer)
+    while (blueprint.episodes.length < 6) {
+      const n = blueprint.episodes.length + 1;
+      blueprint.episodes.push({ episode_number: n, title: 'Episode ' + n, scene_objectives: ['continue the story', 'escalate', 'end strong'], target_cliffhanger: '...', choice_question: 'Aage kya?', choice_a: { label: 'Option A', subtext: '' }, choice_b: { label: 'Option B', subtext: '' } });
+    }
+    setGenItem(0, 'done');
+    const genLabel = blueprint.genre.charAt(0) + blueprint.genre.slice(1).toLowerCase();
+    setGenBadge('✓ ' + genLabel + ' story planned!');
+
+    // Stage 2: Episode 1 scenes
+    setGenItem(1, 'active');
+    setGenEta('Writing Episode 1...');
+    const ep1Examples = selectGoldenExamples(blueprint.genre, 1);
+    const ep1Result = await stageScenesV3({
+      blueprint,
+      episodeNumber: 1,
+      story_state: null,
+      prev_last_sentence: null,
+      choice_label: null,
+      banned_lines: [],
+      examples: ep1Examples
+    });
+    if (!ep1Result?.scenes?.length) throw new Error('Episode 1 returned no scenes — please try again.');
+    setGenItem(1, 'done');
+
+    // Stage 3: Validator (ep1 only — cost discipline)
+    setGenItem(2, 'active');
+    setGenEta('Quality check...');
+    try {
+      const validation = await stageValidate(ep1Result, blueprint);
+      if (validation && !validation.pass && validation.target_node && validation.revised_script) {
+        const idx = (validation.target_node - 1);
+        if (ep1Result.scenes[idx]) ep1Result.scenes[idx].script = validation.revised_script;
+      }
+    } catch(e) { console.warn('Validator failed (non-fatal):', e.message); }
+    setGenItem(2, 'done');
+
+    // Assemble story with ep1 only (eps 2-6 frames exist but with empty scenes — background will fill them)
+    setGenItem(3, 'active');
+    setGenEta('Opening your Katha...');
+
+    const partial = assembleStoryV3(blueprint, [ep1Result], '');
+    const creditMap = assembleCreditsV3(blueprint);
+
+    // Write to localStorage immediately
+    const localId = Date.now();
+    _v3LocalId = localId;
+    const newEntry = { id: localId, story: _prepareForStorage(partial), creditMap, createdAt: localId };
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORIES_KEY) || '[]').slice(0, 4);
+      saved.unshift(newEntry);
+      localStorage.setItem(STORIES_KEY, JSON.stringify(saved));
+    } catch(e) { console.warn('localStorage write failed:', e.message); }
+
+    // Write initial row to DB
+    let dbRowId = null;
+    try {
+      const dbStory = JSON.parse(JSON.stringify(partial));
+      dbStory._creator = _getDisplayName() || 'Katha User';
+      dbRowId = await _saveStoryToDbInitial(dbStory, creditMap);
+      _v3DbRowId = dbRowId;
+      _storiesCacheClear();
+    } catch(e) {
+      console.warn('Initial DB save failed (non-fatal):', e.message);
+    }
+
+    // Navigate to reader immediately — user starts playing ep1 now
+    CURRENT_STORY = partial;
+    CURRENT_CREDIT_MAP = creditMap;
+    setGenItem(3, 'done');
+    setGenEta('Episode 1 ready!');
+    setGenBadge('✓ ' + partial.title);
+    clearGeneratingCard();
+    renderProfileMyStories();
+    startStory();
+
+    // Background: generate eps 2-6 + cover while user reads ep1
+    generateRemainingEpisodesInBackground(blueprint, ep1Result, dbRowId, localId, creditMap);
+
+  } catch (err) {
+    console.error('V3 Pipeline error:', err);
+    clearGeneratingCard();
+    renderProfileMyStories();
+    const msg = err.message || 'unknown error';
+    if (msg.includes('401') || msg.includes('JWT') || msg.includes('auth')) {
+      showGenError('Session expired — please sign out and sign back in, then try again.');
+    } else if (msg.includes('429') || msg.includes('rate')) {
+      showGenError('Too many requests — please wait a minute and try again.');
+    } else if (msg.includes('quota') || msg.includes('billing')) {
+      showGenError('OpenAI quota issue — please check your billing and try again.');
+    } else {
+      showGenError('Something went wrong: ' + msg + '. Please try again.');
+    }
+  }
+}
+
 /* ---------- GENERATING SCREEN ---------- */
 let genTimers = [];
 function clearGenTimers() {
@@ -2691,6 +3406,18 @@ function playSavedStory(id) {
 /* ---------- FEED + PROFILE REFRESH ---------- */
 function _esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+function _storyHookText(s) {
+  const firstScene = s?.episodes?.[0]?.scenes?.[0];
+  if (!firstScene) return '';
+  if (firstScene.script) {
+    // V3: extract first non-trivial dialogue or action line from the script
+    const nodes = parseScriptStringToUiNodes(firstScene.script);
+    const first = nodes.find(n => n.text && n.text.length > 8);
+    return first ? first.text.slice(0, 120) : '';
+  }
+  return firstScene.narrator || firstScene.body || '';
+}
+
 const GENRE_COLORS = {
   MYTHOLOGY: { bg:'rgba(255,176,32,0.16)', color:'#FFB020', border:'rgba(255,176,32,0.35)', fallback:'radial-gradient(ellipse at 40% 30%, rgba(255,176,32,0.22) 0%, transparent 60%), linear-gradient(135deg, #1a1200 0%, #08080F 100%)' },
   ROMANCE:   { bg:'rgba(255,80,120,0.16)',  color:'#FF5078', border:'rgba(255,80,120,0.35)',  fallback:'radial-gradient(ellipse at 40% 50%, rgba(255,80,120,0.22) 0%, transparent 60%), linear-gradient(135deg, #1a0f15 0%, #08080F 100%)' },
@@ -2719,7 +3446,7 @@ function renderFeedGenerated() {
         '</div></div>' +
         '<div class="feed-spacer"></div>' +
         '<div class="feed-bottom">' +
-          '<div class="feed-hook">' + _esc(s.episodes?.[0]?.scenes?.[0]?.narrator || s.episodes?.[0]?.scenes?.[0]?.body || '') + '</div>' +
+          '<div class="feed-hook">' + _esc(_storyHookText(s)) + '</div>' +
           '<div class="feed-meta"><span>6 episodes</span><span class="dot-sep"></span><span>AI generated</span></div>' +
           '<button class="btn-gold feed-play-btn" onclick="playSavedStory(' + entry.id + ')">&#9654; Play Episode 1</button>' +
         '</div>' +
@@ -2813,7 +3540,7 @@ function _renderFeedCards(data) {
         '</div></div>' +
         '<div class="feed-spacer"></div>' +
         '<div class="feed-bottom">' +
-          '<div class="feed-hook">' + _esc(s.episodes?.[0]?.scenes?.[0]?.narrator || s.episodes?.[0]?.scenes?.[0]?.text || '') + '</div>' +
+          '<div class="feed-hook">' + _esc(_storyHookText(s)) + '</div>' +
           '<div class="feed-meta"><span>By ' + _esc(creator) + '</span><span class="dot-sep"></span><span>6 episodes</span></div>' +
           '<button class="btn-gold feed-play-btn" onclick="playPublicStory(' + rowId + ')">&#9654; Play Episode 1</button>' +
         '</div>' +
@@ -3011,7 +3738,11 @@ function startGenerating() {
   const prompt = (document.getElementById('story-prompt')?.value || '').trim();
   if (!prompt) { alert('Please describe your story idea first!'); return; }
   showScreen('generating');
-  runPipeline(prompt);
+  if (USE_V3_ENGINE) {
+    runPipelineV3(prompt);
+  } else {
+    runPipeline(prompt);
+  }
 }
 
 /* ---------- PROFILE SETTINGS ---------- */
