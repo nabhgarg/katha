@@ -2160,7 +2160,7 @@ function _proxyToken() {
   return _cachedToken;
 }
 
-async function oaiChat(messages, model = 'gpt-4o-mini') {
+async function oaiChat(messages, model = 'gpt-4o-mini', extra = {}) {
   const token = await _proxyToken();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 90000);
@@ -2169,7 +2169,7 @@ async function oaiChat(messages, model = 'gpt-4o-mini') {
     res = await fetch(_PROXY, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ type: 'chat', model, messages }),
+      body: JSON.stringify({ type: 'chat', model, messages, ...extra }),
       signal: ctrl.signal
     });
   } catch(e) {
@@ -2980,6 +2980,14 @@ CORE PRINCIPLES:
 5. target_cliffhanger for each episode is the exact sentence Scene 3 must end on — make it a burning question or an impossible image.
 6. choice_a and choice_b must feel morally opposite — no clearly correct answer.
 
+SPEECH TIC RULES (critical):
+- speech_tic must be a Hinglish verbal habit: something like "matlab", "dekh", "sach mein", "haan toh", "kyun nahi", "bas aise hi", "waise bhi", "kya pata".
+- NEVER use English filler words: "you know", "y'know", "I mean", "like", "basically", "literally".
+- The tic must be a word or phrase an Indian would actually use mid-conversation.
+- voice_card lines must be primarily Hinglish — Hindi syntax with natural English words only. NEVER write an English sentence with a tic tacked on.
+- WRONG voice_card line: "Matlab, this isn't the Delhi I remember."
+- RIGHT voice_card line: "Matlab yaar, yeh wala Delhi mujhe yaad nahi tha bilkul."
+
 OUTPUT: A single valid JSON object. No markdown fences. Start with { and end with }.` },
     { role: 'user', content: `User premise: "${userPrompt}"
 
@@ -3029,9 +3037,16 @@ Rahul was feeling very nervous. The room felt cold and tense. He said: "Priya, I
 
 OUTPUT FORMAT (CRITICAL):
 - Each scene is a single string in the "script" field.
-- Wrap action/setting/internal state/physical movement in *asterisks*: *like this*.
-- Character dialogue goes outside asterisks. No quotation marks. No attribution tags ("Rahul said:" is forbidden).
-- Action and dialogue INTERLEAVE within the script string — do not batch all action then all dialogue.
+- Action/setting/internal state goes inside *asterisks*. ONE continuous *action block* opens each scene — do not open a new *action block* before you have closed the previous one. Never nest asterisks.
+- Character dialogue goes outside asterisks, on its own line. No quotation marks. No attribution tags ("Rahul said:" is forbidden).
+- Structure per scene: *opening action block (3-6 lines, establishes place/mood)* then dialogue lines, with brief *one-line action beats* between dialogue lines only.
+
+NARRATOR LANGUAGE (CRITICAL):
+- The narrator (everything inside *asterisks*) is Hindi-dominant Hinglish. Primary language is Hindi in Roman script.
+- English enters ONLY where an urban Indian person would naturally use it — "exit", "meeting", "phone", "deadline". Not as narration style.
+- NO literary English constructions inside asterisks: no "she felt a chill", no "the atmosphere was tense", no "he couldn't help but notice".
+- WRONG: *She felt nervous as she entered the crowded room.*
+- RIGHT: *Haath kaamp raha tha. Andar se awaaz aa rahi thi — bahut log the, bahut shor.*
 
 LANGUAGE:
 - Roman-script Hinglish — Hindi-English code-switching the way urban Indian 18-30 year olds actually speak.
@@ -3074,15 +3089,18 @@ Scene objectives:
 2. ${obj2}
 3. ${obj3}
 
+CLIFFHANGER REQUIREMENT: Scene 3 must end with this sentence copied word for word — do not paraphrase, do not translate, do not alter a single word:
+"${epPlan.target_cliffhanger || ''}"
+
 Output:
 {
   "scenes": [
     {"scene_number": 1, "script": "..."},
     {"scene_number": 2, "script": "..."},
-    {"scene_number": 3, "script": "... *ending on the target cliffhanger*"}
+    {"scene_number": 3, "script": "... ends with the exact cliffhanger sentence above"}
   ]
 }` }
-  ]);
+  ], undefined, { max_tokens: 2000 });
 }
 
 async function stageValidate(ep1Scenes, blueprint) {
