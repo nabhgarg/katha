@@ -3279,13 +3279,17 @@ async function _saveStoryToDbInitial(story, creditMap) {
 
 async function _updateStoryInDb(rowId, story, creditMap) {
   if (!_supabase || !rowId) return;
+  // Refresh session before UPDATE — background tasks can outlive the token cached at pipeline start
+  try { await _supabase.auth.refreshSession(); } catch(e) { /* non-fatal — try anyway */ }
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { console.error('_updateStoryInDb: no active session — skipping update for row', rowId); return; }
   const safe = JSON.parse(JSON.stringify(story));
   const stripB64 = (o) => { if (o && typeof o === 'object') { for (const k in o) { if (typeof o[k] === 'string' && o[k].startsWith('data:')) o[k] = ''; else if (typeof o[k] === 'object') stripB64(o[k]); } } };
   stripB64(safe);
   const update = { story_data: safe };
   if (creditMap !== undefined) update.credit_map = creditMap;
-  const { error } = await _supabase.from('stories').update(update).eq('id', rowId);
-  if (error) console.warn('_updateStoryInDb error:', error.message);
+  const { error } = await _supabase.from('stories').update(update).eq('id', rowId).eq('user_id', session.user.id);
+  if (error) console.error('_updateStoryInDb error:', error.code, error.message, { rowId });
 }
 
 function _updateV3InLocalStorage(localId) {
@@ -3301,9 +3305,10 @@ function _updateV3InLocalStorage(localId) {
 }
 
 async function generateRemainingEpisodesInBackground(blueprint, ep1Scenes, dbRowId, localId, creditMap) {
+  console.log('[bg] Starting background generation for eps 2-6, dbRowId:', dbRowId);
   try {
     let story_state = null;
-    try { story_state = await stageRecomputeState(null, ep1Scenes, blueprint); } catch(e) { /* continue without state */ }
+    try { story_state = await stageRecomputeState(null, ep1Scenes, blueprint); } catch(e) { console.warn('[bg] stageRecomputeState ep1 failed:', e.message); }
 
     let banned_lines = extractBannedLinesV3(ep1Scenes);
     let prev_last_sentence = extractLastSentenceV3(ep1Scenes);
@@ -3322,7 +3327,7 @@ async function generateRemainingEpisodesInBackground(blueprint, ep1Scenes, dbRow
           stageScenesV3({ blueprint, episodeNumber: n, story_state, prev_last_sentence, choice_label: prevChoiceB, banned_lines: currentBanned, examples })
         ]);
       } catch(e) {
-        console.warn(`Background ep${n} failed:`, e.message);
+        console.error(`[bg] ep${n} generation failed:`, e.message, e.stack);
         continue;
       }
 
@@ -3337,10 +3342,12 @@ async function generateRemainingEpisodesInBackground(blueprint, ep1Scenes, dbRow
       _updateV3InLocalStorage(localId);
 
       if (dbRowId) {
+        console.log(`[bg] Saving ep${n} to DB, rowId:`, dbRowId);
         const dbStory = JSON.parse(JSON.stringify(CURRENT_STORY));
         dbStory._creator = _getDisplayName() || 'Katha User';
-        await _updateStoryInDb(dbRowId, dbStory, creditMap).catch(e => console.warn('Checkpoint UPDATE failed:', e.message));
+        await _updateStoryInDb(dbRowId, dbStory, creditMap).catch(e => console.error('[bg] Checkpoint UPDATE failed:', e.message, e.stack));
         _storiesCacheClear();
+        console.log(`[bg] ep${n} DB save complete`);
       }
 
       // Ep6 validator: check resolution, resonant ending, no theme-stating by characters
@@ -3365,7 +3372,8 @@ async function generateRemainingEpisodesInBackground(blueprint, ep1Scenes, dbRow
       try { story_state = await stageRecomputeState(story_state, branchA, blueprint); } catch(e) { /* keep prev */ }
     }
 
-  } catch(e) { console.warn('Background generation error:', e.message); }
+  } catch(e) { console.error('[bg] Background generation fatal error:', e.message, e.stack); }
+  console.log('[bg] Background generation complete');
 }
 
 async function runPipelineV3(userPrompt) {
