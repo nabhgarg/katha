@@ -1794,11 +1794,6 @@ const CREDIT_MAP = [
 let CURRENT_STORY = STORY;
 let CURRENT_CREDIT_MAP = CREDIT_MAP;
 
-/* ---------- V3 ENGINE FLAG ---------- */
-const USE_V3_ENGINE = true;
-let _v3DbRowId = null;
-let _v3LocalId = null;
-
 /* ---------- SCREEN ROUTER ---------- */
 function showScreen(id) {
   // cleanup generating timers if leaving
@@ -1881,7 +1876,8 @@ function renderScene() {
   if (img) {
     img.style.animation = 'none';
     void img.offsetHeight;
-    const displaySrc = s.img || (CURRENT_STORY && CURRENT_STORY.cover_img) || '';
+    const currentEp = CURRENT_STORY?.episodes?.[ST.ep];
+    const displaySrc = s.img || currentEp?.image || (CURRENT_STORY && CURRENT_STORY.cover_img) || '';
     if (displaySrc) {
       img.src = displaySrc;
       img.style.display = '';
@@ -1899,7 +1895,7 @@ function renderScene() {
 
   const hlEl = document.getElementById('sub-hl');
   const bodyEl = document.getElementById('sub-body');
-  if (CURRENT_STORY && CURRENT_STORY.version === 'v3' && s.script) {
+  if (CURRENT_STORY && (CURRENT_STORY.version === 'v3' || CURRENT_STORY.version === 'v4') && s.script) {
     // V3 format: SCENE_CONTEXT (first *action* block) → CHARACTER_DIALOGUE → ACTION_PROSE
     const nodes = parseScriptStringToUiNodes(s.script);
     const _esc = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -2539,401 +2535,6 @@ function parseScriptStringToUiNodes(scriptString) {
   return nodes;
 }
 
-/* ---------- PIPELINE STAGE FUNCTIONS ---------- */
-async function stageBible(userPrompt) {
-  return oaiChat([
-    { role: 'system', content: `Tu ek Indian interactive fiction ka story editor hai.
-Genre options:
-ROMANCE: Class tension, longing, ek central obstacle. Modern India setting. Emotional: bittersweet, slow burn.
-THRILLER: Ek impossible cheez jo real hai. Paranoia har episode mein badhti hai. Ep5 mein twist. Emotional: dread, suspense.
-MYTHOLOGY: Ancient ya divine force ek ordinary Indian ki life disrupt karta hai. Protagonist reluctant hero hai. Emotional: epic, wonder.
-Output sirf JSON.` },
-    { role: 'user', content: `Story idea: "${userPrompt}"
-
-Output this exact JSON:
-{
-  "genre": "ROMANCE or THRILLER or MYTHOLOGY",
-  "title": "2-4 word story title, Hinglish preferred",
-  "city": "one Indian city name",
-  "logline": "one sentence: who is the protagonist, what disrupts their world, what must be resolved",
-  "story_rules": [
-    "permanent fact about protagonist age, location, and status — never changes across episodes",
-    "key plot fact that is established in ep1 and cannot be contradicted later",
-    "one specific world detail unique to this story"
-  ],
-  "protagonist": {
-    "name": "first name only",
-    "age": 24,
-    "wants": "what they consciously want",
-    "hides": "what they don't admit to anyone",
-    "speech_tic": "one phrase describing their spoken Hinglish style e.g. matlab ka overuse jab nervous ho"
-  },
-  "characters": [
-    {"name": "first name", "role": "love_interest or antagonist or ally or unknown", "one_line": "who they are in one sentence"}
-  ],
-  "cover_prompt": "visual description for story cover art — mood, setting, genre atmosphere, key symbol or motif. 40-60 words. No faces. No text."
-}` }
-  ], 'gpt-4o');
-}
-
-async function stageArc(bible) {
-  const rules = bible.story_rules.join('\n- ');
-  const chars = (bible.characters || []).map(c => `${c.name} (${c.role}): ${c.one_line}`).join('\n');
-  return oaiChat([
-    { role: 'system', content: `Tu 6-episode interactive story plan kar raha hai Indian mobile audience ke liye.
-Story rules (kabhi violate mat karna):
-- ${rules}
-Protagonist: ${bible.protagonist.name}, age ${bible.protagonist.age}. Wants: ${bible.protagonist.wants}. Hides: ${bible.protagonist.hides}.
-Other characters: ${chars}
-Logline: ${bible.logline}
-Output sirf JSON.` },
-    { role: 'user', content: `Plan all 6 episodes. Ep1 ka cliffhanger LAST design karo — sabse strong hona chahiye.
-
-Episode roles:
-Ep1 HOOK: Mid-action se shuru, koi backstory nahi. Scene 3 mein: ek revelation jo sab kuch recontextualize kare. Cliffhanger = BURNING QUESTION.
-Ep2 ESCALATION: Ep1 problem thought se bada hai. Choice ka consequence visible hai.
-Ep3 COMPLICATION: New info sab badal deta hai. Protagonist reasonable but wrong decision leta hai.
-Ep4 ALL IS LOST: Lowest point. Kuch valued chala gaya. Dono choices feel like loss.
-Ep5 THE TURN: Sabse meaningful fork. Ek option safe but hollow, doosra risky but true. User genuinely uncertain feel kare.
-Ep6 RESOLUTION: No choice. 3 scenes close the story. Ep1 ki ek image ya line echo honi chahiye.
-
-IMPORTANT: Eps 2-6 ke liye scene_jobs_a (agar player ne pichle ep mein choice A li) aur scene_jobs_b (agar choice B li) ALAG hone chahiye. Consequences clearly different hone chahiye.
-
-Output JSON:
-{
-  "episodes": [
-    {
-      "number": 1,
-      "title": "2-3 words, Hinglish preferred",
-      "scene_jobs": ["scene 1: kya hota hai, ek sentence", "scene 2: kya hota hai", "scene 3: revelation jo sab recontextualize kare"],
-      "cliffhanger": "exact text shown to user — must be a question or impossible juxtaposition",
-      "choice_q": "question shown to user, Hinglish",
-      "choice_a": {"label": "3-5 words", "sub": "cost or implication, one sentence"},
-      "choice_b": {"label": "3-5 words", "sub": "cost or implication, one sentence"}
-    },
-    {
-      "number": 2,
-      "title": "...",
-      "scene_jobs_a": ["ep1 choice A consequence dikhao", "escalate karo", "ep2 revelation"],
-      "scene_jobs_b": ["ep1 choice B consequence dikhao", "different escalation", "ep2 revelation"],
-      "cliffhanger": "...",
-      "choice_q": "...",
-      "choice_a": {"label":"...","sub":"..."},
-      "choice_b": {"label":"...","sub":"..."}
-    },
-    {"number": 3, "title": "...", "scene_jobs_a": ["...","...","..."], "scene_jobs_b": ["...","...","..."], "cliffhanger": "...", "choice_q": "...", "choice_a": {"label":"...","sub":"..."}, "choice_b": {"label":"...","sub":"..."}},
-    {"number": 4, "title": "...", "scene_jobs_a": ["...","...","..."], "scene_jobs_b": ["...","...","..."], "cliffhanger": "...", "choice_q": "...", "choice_a": {"label":"...","sub":"..."}, "choice_b": {"label":"...","sub":"..."}},
-    {"number": 5, "title": "...", "scene_jobs_a": ["...","...","..."], "scene_jobs_b": ["...","...","..."], "cliffhanger": "...", "choice_q": "...", "choice_a": {"label":"...","sub":"..."}, "choice_b": {"label":"...","sub":"..."}},
-    {
-      "number": 6,
-      "title": "...",
-      "scene_jobs_a": ["resolution for path A, scene 1","scene 2","scene 3 — echo ep1"],
-      "scene_jobs_b": ["resolution for path B, scene 1","scene 2","scene 3 — echo ep1"]
-    }
-  ]
-}
-
-Rules: choice A aur B morally opposite feel hone chahiye. Koi clearly correct nahi.` }
-  ], 'gpt-4o');
-}
-
-async function stageScenes(bible, epPlan, prevLastLine, epNum, prevChoiceLabel, bannedLines) {
-  const sceneJobs = epPlan.scene_jobs || ['scene kholo', 'action develop karo', 'episode band karo'];
-  const prevText = prevLastLine
-    ? `Pichli scene khatam hui thi: "${prevLastLine}"`
-    : 'Yeh story ki pehli scene hai — seedha action ke beech mein shuru karo, koi backstory ya introduction nahi.';
-  const cliffText = epPlan.cliffhanger
-    ? `Is episode ka anjaam is cliffhanger par hona chahiye: "${epPlan.cliffhanger}"`
-    : 'Yeh aakhri episode hai — earned, resolved closure do. Ep1 ki koi cheez echo honi chahiye.';
-  const choiceText = prevChoiceLabel
-    ? `Player ne pichle episode mein yeh choose kiya tha: "${prevChoiceLabel}". Uska consequence is episode ki pehli scene mein clearly dikhna chahiye — player ko feel hona chahiye ki unki choice mattered.`
-    : '';
-  const bannedText = (bannedLines && bannedLines.length)
-    ? `In phrases ko BILKUL mat repeat karo — paraphrase bhi nahi:\n${bannedLines.slice(-24).join('\n')}`
-    : '';
-
-  return oaiChat([
-    { role: 'system', content: `Tu episode ${epNum} ke 3 scenes likh raha hai ek Indian interactive story ke liye.
-Genre: ${bible.genre} | Shehar: ${bible.city}
-Story rules: ${bible.story_rules.join(' | ')}
-Protagonist: ${bible.protagonist.name} (${bible.protagonist.age} saal). Speech tic: ${bible.protagonist.speech_tic}
-Characters: ${(bible.characters || []).map(c => `${c.name} (${c.role})`).join(', ')}
-${cliffText}
-${prevText}
-${choiceText}
-${bannedText}
-Output sirf JSON.` },
-    { role: 'user', content: `Scene jobs:
-1. ${sceneJobs[0]}
-2. ${sceneJobs[1]}
-3. ${sceneJobs[2]}
-
-Teeno scenes likho. IMPORTANT: Teeno scenes ek doosre se completely alag honi chahiye — same sentence, phrase, ya emotion BILKUL mat repeat karo, paraphrase bhi nahi. Har scene ek naya moment, naya emotion, naya angle.
-
-Har scene ke liye output:
-
-narrator: Hinglish third-person present tense. 2-3 sentences. Ek concrete sensory detail (smell/awaaz/texture/temperature) zaroor ho. Action aur emotion dikhao — explain mat karo. Last sentence next scene ko inevitable banaye ya tension badhaye.
-
-dialogues: 1 se 3 lines. Characters ki direct awaaz — first-person, conversational, no attribution tags ("Rahul ne kaha" mat likho — sirf dialogue). Har line alag string. Protagonist bol raha ho toh speech tic ("${bible.protagonist.speech_tic}") use karo.
-
-Language: Roman script Hinglish — Hindi aur English naturally mix honi chahiye, jaise real urban Indian bolte hain. Na pure Hindi, na pure English.
-
-Output JSON:
-{
-  "scenes": [
-    {"narrator": "...", "dialogues": ["...", "..."]},
-    {"narrator": "...", "dialogues": ["..."]},
-    {"narrator": "...", "dialogues": ["...", "..."]}
-  ]
-}` }
-  ]);
-}
-
-/* ---------- CONTENT HELPERS ---------- */
-function _extractLastLine(scenes) {
-  const lastScene = scenes[scenes.length - 1];
-  if (!lastScene) return '';
-  const text = lastScene.narrator || lastScene.body || '';
-  const sentences = text.split(/[.!?।]+/).map(s => s.trim()).filter(Boolean);
-  return sentences[sentences.length - 1] || '';
-}
-
-function _extractBannedLines(scenes) {
-  const lines = [];
-  for (const s of scenes || []) {
-    if (s.narrator) {
-      s.narrator.split(/[.!?।]+/).map(x => x.trim()).filter(x => x.length > 12).forEach(x => lines.push(x));
-    }
-    if (s.dialogues) s.dialogues.filter(d => d.length > 5).forEach(d => lines.push(d));
-    if (s.hl) lines.push(s.hl);
-  }
-  return lines;
-}
-
-/* ---------- CHECKLIST HELPERS ---------- */
-const GEN_STEP_LABELS = [
-  'Building your story world',
-  'Planning 6 episode arcs',
-  'Writing all scenes',
-  'Generating cover art',
-  'Putting it all together'
-];
-
-const GEN_STEP_LABELS_V3 = [
-  'Designing your story world',
-  'Writing Episode 1',
-  'Quality check',
-  'Opening your Katha'
-];
-
-function initGenList(labels) {
-  const list = document.getElementById('check-list');
-  if (!list) return;
-  list.innerHTML = (labels || GEN_STEP_LABELS).map(s => `<li><span class="ck"></span>${s}</li>`).join('');
-}
-
-function setGenItem(idx, state) {
-  const list = document.getElementById('check-list');
-  if (!list) return;
-  const items = list.querySelectorAll('li');
-  if (!items[idx]) return;
-  const li = items[idx], ck = li.querySelector('.ck');
-  if (state === 'active') { li.classList.add('active'); if (ck) ck.textContent = '·'; }
-  else if (state === 'done') { li.classList.remove('active'); li.classList.add('done'); if (ck) ck.textContent = '✓'; }
-}
-
-function setGenBadge(text) {
-  const el = document.getElementById('gen-badge'); if (el) el.textContent = text;
-}
-function setGenEta(text) {
-  const el = document.getElementById('gen-eta'); if (el) el.textContent = text;
-}
-function showGenError(msg) {
-  const el = document.getElementById('gen-error');
-  if (el) { el.textContent = msg; el.style.display = 'block'; }
-  setGenEta('');
-}
-
-/* ---------- STORY ASSEMBLY ---------- */
-function _normalizeScenes(rawScenes) {
-  return (rawScenes || []).map(s => ({
-    narrator: s.narrator || s.body || '',
-    dialogues: s.dialogues || (s.hl ? [s.hl] : []),
-    img: s.img || ''
-  }));
-}
-
-function assembleStory(bible, arc, episodeScenes, coverImg) {
-  const eps = arc.episodes || [];
-  const episodes = eps.map((epPlan, i) => {
-    const isFirst = i === 0;
-    const isLast = i === eps.length - 1;
-
-    if (isFirst) {
-      // Ep1: single scene path, no branching
-      const scenes = _normalizeScenes(episodeScenes[i]?.A || episodeScenes[i]?.scenes || []);
-      return {
-        title: epPlan.title || 'Episode 1',
-        scenes,
-        choice: {
-          q: epPlan.choice_q || 'Aage kya hoga?',
-          A: { text: epPlan.choice_a?.label || 'Option A', sub: epPlan.choice_a?.sub || '' },
-          B: { text: epPlan.choice_b?.label || 'Option B', sub: epPlan.choice_b?.sub || '' }
-        }
-      };
-    }
-
-    const scenesA = _normalizeScenes(episodeScenes[i]?.A || []);
-    const scenesB = _normalizeScenes(episodeScenes[i]?.B || scenesA);
-
-    if (isLast) {
-      return { title: epPlan.title || 'Ek Ant', scenesA, scenesB };
-    }
-
-    return {
-      title: epPlan.title || ('Episode ' + (i + 1)),
-      scenesA,
-      scenesB,
-      choice: {
-        q: epPlan.choice_q || 'Aage kya hoga?',
-        A: { text: epPlan.choice_a?.label || 'Option A', sub: epPlan.choice_a?.sub || '' },
-        B: { text: epPlan.choice_b?.label || 'Option B', sub: epPlan.choice_b?.sub || '' }
-      }
-    };
-  });
-  return { title: bible.title, genre: bible.genre, cover_img: coverImg || '', episodes };
-}
-
-function assembleCredits(arc, bible) {
-  const eps = arc.episodes || [];
-  const map = [];
-  for (let i = 0; i < Math.min(eps.length - 1, 5); i++) {
-    const ep = eps[i];
-    if (!ep.choice_a) continue;
-    const label = i === 0 ? bible.protagonist.name.toUpperCase() : ep.title.toUpperCase();
-    map.push({ name: label, A: ep.choice_a.sub || ep.choice_a.label, B: ep.choice_b?.sub || ep.choice_b?.label || '' });
-  }
-  return map;
-}
-
-/* ---------- PIPELINE ---------- */
-async function runPipeline(userPrompt) {
-  initGenList();
-  document.getElementById('gen-error').style.display = 'none';
-  showGeneratingCard();
-
-  // Pre-warm: refresh auth session before the long pipeline wait so token doesn't expire mid-flight
-  if (_supabase) { try { await _supabase.auth.getSession(); } catch(e) {} }
-
-  try {
-    // Stage 1: Bible (gpt-4o)
-    setGenItem(0, 'active');
-    setGenEta('Estimated: 3–5 minutes');
-    const bible = await stageBible(userPrompt);
-    setGenItem(0, 'done');
-    const genLabel = bible.genre.charAt(0) + bible.genre.slice(1).toLowerCase();
-    setGenBadge('✓ ' + genLabel + ' detected!');
-
-    // Stage 2: Arc Planner (gpt-4o)
-    setGenItem(1, 'active');
-    const arcData = await stageArc(bible);
-    const arc = arcData.episodes ? arcData : { episodes: Object.values(arcData)[0] || [] };
-    setGenItem(1, 'done');
-
-    // Stage 3: Scenes — ep1 single, eps 2-6 dual branch (A and B in parallel)
-    setGenItem(2, 'active');
-    setGenEta('Writing episode 1...');
-    const episodeScenes = [];
-    const bannedLines = [];
-
-    // Ep1: no branching, no prior choice
-    const ep1Result = await stageScenes(bible, arc.episodes[0], '', 1, null, []);
-    if (!ep1Result?.scenes?.length) throw new Error('Episode 1 returned no scenes — please try again.');
-    episodeScenes[0] = { A: ep1Result.scenes, B: ep1Result.scenes };
-    _extractBannedLines(ep1Result.scenes).forEach(l => bannedLines.push(l));
-    let prevLastLineA = _extractLastLine(ep1Result.scenes);
-    let prevLastLineB = prevLastLineA;
-
-    // Eps 2-6: generate both branches in parallel
-    for (let i = 1; i < arc.episodes.length; i++) {
-      setGenEta(`Writing episode ${i + 1} of ${arc.episodes.length} (both paths)...`);
-      const epPlan = arc.episodes[i];
-      const prevEp = arc.episodes[i - 1];
-      const choiceLabelA = prevEp.choice_a?.label || '';
-      const choiceLabelB = prevEp.choice_b?.label || '';
-      const epPlanA = { ...epPlan, scene_jobs: epPlan.scene_jobs_a || epPlan.scene_jobs || [] };
-      const epPlanB = { ...epPlan, scene_jobs: epPlan.scene_jobs_b || epPlan.scene_jobs || [] };
-      const currentBanned = [...bannedLines];
-
-      const [resA, resB] = await Promise.all([
-        stageScenes(bible, epPlanA, prevLastLineA, i + 1, choiceLabelA, currentBanned),
-        stageScenes(bible, epPlanB, prevLastLineB, i + 1, choiceLabelB, currentBanned)
-      ]);
-      if (!resA?.scenes?.length || !resB?.scenes?.length) throw new Error(`Episode ${i + 1} returned no scenes — please try again.`);
-      episodeScenes[i] = { A: resA.scenes, B: resB.scenes };
-
-      _extractBannedLines(resA.scenes).forEach(l => bannedLines.push(l));
-      _extractBannedLines(resB.scenes).forEach(l => bannedLines.push(l));
-      if (bannedLines.length > 72) bannedLines.splice(0, bannedLines.length - 72);
-      prevLastLineA = _extractLastLine(resA.scenes);
-      prevLastLineB = _extractLastLine(resB.scenes);
-    }
-    setGenItem(2, 'done');
-
-    // Stage 4: Single cover image from bible cover_prompt
-    setGenItem(3, 'active');
-    setGenEta('Generating cover art...');
-    const style = IMG_STYLE[bible.genre] || IMG_STYLE.MYTHOLOGY;
-    const coverPromptFull = style.prefix + ' ' + (bible.cover_prompt || bible.logline) + ' ' + style.suffix;
-    let coverImg = '';
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try { coverImg = await oaiImage(coverPromptFull); break; }
-      catch (e) {
-        const rateLimit = e.message?.includes('429') || e.message?.toLowerCase().includes('rate');
-        if (attempt < 2 && rateLimit) {
-          setGenEta('Rate limit — retrying cover art in 30s...');
-          await new Promise(r => setTimeout(r, 30000));
-        } else { console.warn('Cover image failed:', e.message); break; }
-      }
-    }
-    setGenItem(3, 'done');
-
-    // Assembly
-    setGenItem(4, 'active');
-    CURRENT_STORY = assembleStory(bible, arc, episodeScenes, coverImg);
-    CURRENT_CREDIT_MAP = assembleCredits(arc, bible);
-    await saveGeneratedStory(CURRENT_STORY, CURRENT_CREDIT_MAP);
-    setGenItem(4, 'done');
-    setGenEta('Your Katha is ready!');
-    setGenBadge('✓ ' + CURRENT_STORY.title);
-
-    // Replace placeholder card with real story card in My Stories
-    clearGeneratingCard();
-    renderProfileMyStories();
-
-    const onGeneratingScreen = document.getElementById('s-generating')?.classList.contains('active');
-    if (onGeneratingScreen) {
-      setTimeout(() => { startStory(); }, 1800);
-    } else {
-      showToast('✨ ' + CURRENT_STORY.title + ' is ready! Tap to read.', () => { startStory(); });
-    }
-
-  } catch (err) {
-    console.error('Pipeline error:', err);
-    clearGeneratingCard();
-    renderProfileMyStories();
-    const msg = err.message || 'unknown error';
-    if (msg.includes('401') || msg.includes('JWT') || msg.includes('auth')) {
-      showGenError('Session expired — please sign out and sign back in, then try again.');
-    } else if (msg.includes('429') || msg.includes('rate')) {
-      showGenError('Too many requests — please wait a minute and try again.');
-    } else if (msg.includes('quota') || msg.includes('billing')) {
-      showGenError('OpenAI quota issue — please check your billing and try again.');
-    } else {
-      showGenError('Something went wrong: ' + msg + '. Please try again.');
-    }
-  }
-}
 
 /* ---------- V3 PIPELINE ---------- */
 
@@ -3132,55 +2733,45 @@ ${scriptsText}` }
   ]);
 }
 
-async function stageValidateEp6(ep6Scenes, blueprint) {
-  const scriptsText = (ep6Scenes?.scenes || []).map((s, i) => `Scene ${i + 1}:\n${s.script}`).join('\n\n---\n\n');
-  return oaiChat([
-    { role: 'system', content: `You audit the final episode of a story before it ships.
+/* ---------- CHECKLIST HELPERS ---------- */
+const GEN_STEP_LABELS_V4 = [
+  'Designing your story world',
+  'Writing Episode 1',
+  'Writing Episodes 2 & 3',
+  'Writing Episodes 4 & 5',
+  'Finishing your Katha',
+  'Saving your Katha'
+];
 
-CHECKS (Episode 6 only):
-1. Does the resolution address the secret — not by naming it, but by enacting its consequence?
-2. Does the final scene end on a resonant image or gesture rather than a summarizing statement?
-3. Does any scene use a supporting character to state the story's theme directly? If yes, failure.
-
-If all checks pass: set pass true.
-If any check fails: set pass false, identify the single worst-failing scene (target_node 1/2/3), and produce a corrected revised_script for THAT SCENE ONLY.
-
-Output raw JSON only, no markdown fences:
-{"pass": true|false, "issues": ["..."], "target_node": 1|2|3|null, "revised_script": "..."|null}` },
-    { role: 'user', content: `Story: "${blueprint.title}" (${blueprint.genre})
-Secret: "${blueprint.secret || ''}"
-
-Episode 6 scenes:
-${scriptsText}` }
-  ]);
+function initGenList(labels) {
+  const list = document.getElementById('check-list');
+  if (!list) return;
+  list.innerHTML = (labels || GEN_STEP_LABELS_V4).map(s => `<li><span class="ck"></span>${s}</li>`).join('');
 }
 
-async function stageRecomputeState(prevState, epScenes, blueprint) {
-  const scenes = epScenes?.scenes || [];
-  const scriptText = scenes.map((s, i) => `Scene ${i + 1}:\n${s.script || ''}`).join('\n\n');
-  const empty = { relationships: [], active_mysteries: [], emotional_state: '', objects: [], character_goals: [] };
-  return oaiChat([
-    { role: 'system', content: `You update a compact story-state memory vector after each episode of an interactive fiction app. The memory is passed to the next episode's writer to prevent continuity drift. Token budget: under 150 tokens total. Be ruthlessly compact.
-
-Update rules:
-- relationships: only update pairs where state has shifted
-- active_mysteries: add new unresolved hooks; remove ones resolved this episode
-- emotional_state: one phrase for protagonist's current dominant feeling
-- objects: only items that will plausibly matter in a future scene
-- character_goals: only update if a goal has changed
-
-Output raw JSON only, no markdown fences.` },
-    { role: 'user', content: `Genre: ${blueprint.genre}. Protagonist: ${blueprint.protagonist?.name}.
-
-Current state: ${JSON.stringify(prevState || empty)}
-
-Episode scripts:
-${scriptText}
-
-Return the updated story_state JSON.` }
-  ]);
+function setGenItem(idx, state) {
+  const list = document.getElementById('check-list');
+  if (!list) return;
+  const items = list.querySelectorAll('li');
+  if (!items[idx]) return;
+  const li = items[idx], ck = li.querySelector('.ck');
+  if (state === 'active') { li.classList.add('active'); if (ck) ck.textContent = '·'; }
+  else if (state === 'done') { li.classList.remove('active'); li.classList.add('done'); if (ck) ck.textContent = '✓'; }
 }
 
+function setGenBadge(text) {
+  const el = document.getElementById('gen-badge'); if (el) el.textContent = text;
+}
+function setGenEta(text) {
+  const el = document.getElementById('gen-eta'); if (el) el.textContent = text;
+}
+function showGenError(msg) {
+  const el = document.getElementById('gen-error');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+  setGenEta('');
+}
+
+/* ---------- STORY HELPERS ---------- */
 function extractBannedLinesV3(epResult) {
   const lines = [];
   for (const s of (epResult?.scenes || [])) {
@@ -3206,6 +2797,14 @@ function extractLastSentenceV3(epResult) {
 function buildCoverPromptV3(blueprint) {
   const style = IMG_STYLE[blueprint.genre] || IMG_STYLE.MYTHOLOGY;
   return style.prefix + ' ' + (blueprint.logline || blueprint.title) + ' ' + style.suffix;
+}
+
+function buildEpisodeImagePrompt(blueprint, epNum) {
+  const epPlan = blueprint.episodes[epNum - 1];
+  const style = IMG_STYLE[blueprint.genre] || IMG_STYLE.MYTHOLOGY;
+  const city = blueprint.setting?.city || blueprint.city || 'India';
+  const mood = epPlan?.scene_objectives?.[0] || epPlan?.title || '';
+  return style.prefix + ' ' + city + '. ' + (blueprint.protagonist?.name || 'protagonist') + '. ' + mood + '. ' + style.suffix;
 }
 
 function assembleStoryV3(blueprint, allEpisodes, coverImg) {
@@ -3262,58 +2861,59 @@ function assembleCreditsV3(blueprint) {
   }));
 }
 
-async function _saveStoryToDbInitial(story, creditMap) {
-  if (!_supabase) throw new Error('Supabase not initialized');
-  const { data: { session } } = await _supabase.auth.getSession();
-  const userId = session?.user?.id || _currentUser?.id;
-  if (!userId) throw new Error('No active session — please sign in again');
-  const safe = JSON.parse(JSON.stringify(story));
-  const stripB64 = (o) => { if (o && typeof o === 'object') { for (const k in o) { if (typeof o[k] === 'string' && o[k].startsWith('data:')) o[k] = ''; else if (typeof o[k] === 'object') stripB64(o[k]); } } };
-  stripB64(safe);
-  const payloadLen = JSON.stringify(safe).length;
-  if (payloadLen > 500000) throw new Error('Story payload too large: ' + payloadLen + ' bytes');
-  const { data, error } = await _supabase.from('stories').insert({ user_id: userId, story_data: safe, credit_map: creditMap }).select('id').single();
-  if (error) throw new Error(error.message);
-  return data.id;
-}
+async function runPipelineV4(userPrompt) {
+  initGenList(GEN_STEP_LABELS_V4);
+  document.getElementById('gen-error').style.display = 'none';
+  showGeneratingCard();
 
-async function _updateStoryInDb(rowId, story, creditMap) {
-  if (!_supabase || !rowId) return;
-  // Refresh session before UPDATE — background tasks can outlive the token cached at pipeline start
-  try { await _supabase.auth.refreshSession(); } catch(e) { /* non-fatal — try anyway */ }
-  const { data: { session } } = await _supabase.auth.getSession();
-  if (!session) { console.error('_updateStoryInDb: no active session — skipping update for row', rowId); return; }
-  const safe = JSON.parse(JSON.stringify(story));
-  const stripB64 = (o) => { if (o && typeof o === 'object') { for (const k in o) { if (typeof o[k] === 'string' && o[k].startsWith('data:')) o[k] = ''; else if (typeof o[k] === 'object') stripB64(o[k]); } } };
-  stripB64(safe);
-  const update = { story_data: safe };
-  if (creditMap !== undefined) update.credit_map = creditMap;
-  const { error } = await _supabase.from('stories').update(update).eq('id', rowId).eq('user_id', session.user.id);
-  if (error) console.error('_updateStoryInDb error:', error.code, error.message, { rowId });
-}
+  if (_supabase) { try { await _supabase.auth.getSession(); } catch(e) {} }
 
-function _updateV3InLocalStorage(localId) {
-  if (!localId || !CURRENT_STORY) return;
   try {
-    const saved = JSON.parse(localStorage.getItem(STORIES_KEY) || '[]');
-    const idx = saved.findIndex(e => e.id === localId);
-    if (idx !== -1) {
-      saved[idx].story = _prepareForStorage(CURRENT_STORY);
-      localStorage.setItem(STORIES_KEY, JSON.stringify(saved));
+    // Step 1: Architect
+    setGenItem(0, 'active');
+    setGenEta('Estimated: 4–5 minutes total — browse other stories while you wait!');
+    const blueprint = await stageArchitect(userPrompt);
+    if (!blueprint?.episodes?.length) throw new Error('Architect returned no episodes — please try again.');
+    while (blueprint.episodes.length < 6) {
+      const n = blueprint.episodes.length + 1;
+      blueprint.episodes.push({ episode_number: n, title: 'Episode ' + n, scene_objectives: ['continue the story', 'escalate', 'end strong'], target_cliffhanger: '...', choice_question: 'Aage kya?', choice_a: { label: 'Option A', subtext: '' }, choice_b: { label: 'Option B', subtext: '' } });
     }
-  } catch(e) { /* quota — non-critical */ }
-}
+    setGenItem(0, 'done');
+    const genLabel = blueprint.genre.charAt(0) + blueprint.genre.slice(1).toLowerCase();
+    setGenBadge('✓ ' + genLabel + ' — writing your story...');
 
-async function generateRemainingEpisodesInBackground(blueprint, ep1Scenes, dbRowId, localId, creditMap) {
-  console.log('[bg] Starting background generation for eps 2-6, dbRowId:', dbRowId);
-  try {
-    let story_state = null;
-    try { story_state = await stageRecomputeState(null, ep1Scenes, blueprint); } catch(e) { console.warn('[bg] stageRecomputeState ep1 failed:', e.message); }
+    // Step 2: Episode 1 + cover (DALL-E) in parallel, then validate + ep1 image (DALL-E) in parallel
+    setGenItem(1, 'active');
+    setGenEta('Writing Episode 1...');
+    const ep1Examples = selectGoldenExamples(blueprint.genre, 1);
+    const [ep1Result, coverImg] = await Promise.all([
+      stageScenesV3({ blueprint, episodeNumber: 1, story_state: null, prev_last_sentence: null, choice_label: null, banned_lines: [], examples: ep1Examples }),
+      oaiImage(buildCoverPromptV3(blueprint)).catch(e => { console.warn('Cover failed (non-fatal):', e.message); return ''; })
+    ]);
+    if (!ep1Result?.scenes?.length) throw new Error('Episode 1 returned no scenes — please try again.');
 
-    let banned_lines = extractBannedLinesV3(ep1Scenes);
-    let prev_last_sentence = extractLastSentenceV3(ep1Scenes);
+    // Validate ep1 + generate ep1 DALL-E image in parallel
+    const [_validation, ep1Img] = await Promise.all([
+      stageValidate(ep1Result, blueprint).catch(e => { console.warn('Validator failed (non-fatal):', e.message); return null; }),
+      oaiImage(buildEpisodeImagePrompt(blueprint, 1)).catch(e => { console.warn('Ep1 image failed (non-fatal):', e.message); return ''; })
+    ]);
+    if (_validation && !_validation.pass && _validation.target_node && _validation.revised_script) {
+      const idx = _validation.target_node - 1;
+      if (ep1Result.scenes[idx]) ep1Result.scenes[idx].script = _validation.revised_script;
+    }
+    setGenItem(1, 'done');
+
+    // Steps 3-5: Episodes 2-6 — each episode: branchA + branchB in parallel, Pollinations image (instant URL)
+    let banned_lines = extractBannedLinesV3(ep1Result);
+    let prev_last_sentence = extractLastSentenceV3(ep1Result);
+    const episodeResults = [ep1Result];
+    const episodeImages = [ep1Img];
 
     for (let n = 2; n <= 6; n++) {
+      if (n === 2) { setGenItem(2, 'active'); setGenEta('Writing Episodes 2 & 3...'); }
+      if (n === 4) { setGenItem(2, 'done'); setGenItem(3, 'active'); setGenEta('Writing Episodes 4 & 5...'); }
+      if (n === 6) { setGenItem(3, 'done'); setGenItem(4, 'active'); setGenEta('Finishing your Katha...'); }
+
       const prevEpPlan = blueprint.episodes[n - 2];
       const prevChoiceA = prevEpPlan?.choice_a?.label || '';
       const prevChoiceB = prevEpPlan?.choice_b?.label || '';
@@ -3323,172 +2923,61 @@ async function generateRemainingEpisodesInBackground(blueprint, ep1Scenes, dbRow
       let branchA, branchB;
       try {
         [branchA, branchB] = await Promise.all([
-          stageScenesV3({ blueprint, episodeNumber: n, story_state, prev_last_sentence, choice_label: prevChoiceA, banned_lines: currentBanned, examples }),
-          stageScenesV3({ blueprint, episodeNumber: n, story_state, prev_last_sentence, choice_label: prevChoiceB, banned_lines: currentBanned, examples })
+          stageScenesV3({ blueprint, episodeNumber: n, story_state: null, prev_last_sentence, choice_label: prevChoiceA, banned_lines: currentBanned, examples }),
+          stageScenesV3({ blueprint, episodeNumber: n, story_state: null, prev_last_sentence, choice_label: prevChoiceB, banned_lines: currentBanned, examples })
         ]);
       } catch(e) {
-        console.error(`[bg] ep${n} generation failed:`, e.message, e.stack);
-        continue;
+        throw new Error(`Episode ${n} failed: ${e.message}`);
       }
+      if (!branchA?.scenes?.length || !branchB?.scenes?.length) throw new Error(`Episode ${n} returned no scenes — please try again.`);
 
-      if (!branchA?.scenes?.length || !branchB?.scenes?.length) continue;
-
-      // Update in-memory CURRENT_STORY so player can advance immediately
-      if (CURRENT_STORY && CURRENT_STORY.version === 'v3' && CURRENT_STORY.episodes[n - 1]) {
-        CURRENT_STORY.episodes[n - 1].scenesA = branchA.scenes;
-        CURRENT_STORY.episodes[n - 1].scenesB = branchB.scenes;
-      }
-
-      _updateV3InLocalStorage(localId);
-
-      if (dbRowId) {
-        console.log(`[bg] Saving ep${n} to DB, rowId:`, dbRowId);
-        const dbStory = JSON.parse(JSON.stringify(CURRENT_STORY));
-        dbStory._creator = _getDisplayName() || 'Katha User';
-        await _updateStoryInDb(dbRowId, dbStory, creditMap).catch(e => console.error('[bg] Checkpoint UPDATE failed:', e.message, e.stack));
-        _storiesCacheClear();
-        console.log(`[bg] ep${n} DB save complete`);
-      }
-
-      // Ep6 validator: check resolution, resonant ending, no theme-stating by characters
-      if (n === 6) {
-        try {
-          const ep6Validation = await stageValidateEp6(branchA, blueprint);
-          if (ep6Validation && !ep6Validation.pass && ep6Validation.target_node && ep6Validation.revised_script) {
-            const idx = ep6Validation.target_node - 1;
-            if (branchA.scenes[idx]) branchA.scenes[idx].script = ep6Validation.revised_script;
-            // Reflect fix in CURRENT_STORY
-            if (CURRENT_STORY?.episodes[n - 1]?.scenesA?.[idx]) {
-              CURRENT_STORY.episodes[n - 1].scenesA[idx].script = ep6Validation.revised_script;
-            }
-          }
-        } catch(e) { console.warn('Ep6 validator failed (non-fatal):', e.message); }
-      }
+      episodeResults.push({ A: branchA, B: branchB });
+      // Pollinations for ep2-6 images (free, instant URL — browser fetches on display)
+      episodeImages.push(_pollinationsUrl(buildEpisodeImagePrompt(blueprint, n)));
 
       banned_lines.push(...extractBannedLinesV3(branchA), ...extractBannedLinesV3(branchB));
       if (banned_lines.length > 72) banned_lines.splice(0, banned_lines.length - 72);
       prev_last_sentence = extractLastSentenceV3(branchA);
-
-      try { story_state = await stageRecomputeState(story_state, branchA, blueprint); } catch(e) { /* keep prev */ }
     }
+    setGenItem(4, 'done');
 
-  } catch(e) { console.error('[bg] Background generation fatal error:', e.message, e.stack); }
-  console.log('[bg] Background generation complete');
-}
+    // Step 6: Assemble complete story + single DB save
+    setGenItem(5, 'active');
+    setGenEta('Saving your Katha...');
 
-async function runPipelineV3(userPrompt) {
-  initGenList(GEN_STEP_LABELS_V3);
-  document.getElementById('gen-error').style.display = 'none';
-  showGeneratingCard();
+    // Build episode results array in the format assembleStoryV3 expects
+    const allEpsForAssembly = episodeResults.map((r, i) => {
+      if (i === 0) return r; // ep1 is already the result object with .scenes
+      return { A: r.A, B: r.B }; // eps 2-6 have .A and .B
+    });
+    const story = assembleStoryV3(blueprint, allEpsForAssembly, coverImg);
+    story.version = 'v4';
+    // Attach per-episode images
+    episodeImages.forEach((img, i) => { if (story.episodes[i] && img) story.episodes[i].image = img; });
 
-  if (_supabase) { try { await _supabase.auth.getSession(); } catch(e) {} }
-
-  try {
-    // Stage 1: Architect — single gpt-4o call replaces Bible + Arc
-    setGenItem(0, 'active');
-    setGenEta('Estimated: 45–60 seconds');
-    const blueprint = await stageArchitect(userPrompt);
-    if (!blueprint?.episodes?.length) throw new Error('Architect returned no episodes — please try again.');
-    // Ensure we have 6 episodes (pad if model returned fewer)
-    while (blueprint.episodes.length < 6) {
-      const n = blueprint.episodes.length + 1;
-      blueprint.episodes.push({ episode_number: n, title: 'Episode ' + n, scene_objectives: ['continue the story', 'escalate', 'end strong'], target_cliffhanger: '...', choice_question: 'Aage kya?', choice_a: { label: 'Option A', subtext: '' }, choice_b: { label: 'Option B', subtext: '' } });
-    }
-    setGenItem(0, 'done');
-    const genLabel = blueprint.genre.charAt(0) + blueprint.genre.slice(1).toLowerCase();
-    setGenBadge('✓ ' + genLabel + ' story planned!');
-
-    // Stage 2: Episode 1 + cover image in parallel
-    setGenItem(1, 'active');
-    setGenEta('Writing Episode 1...');
-    const ep1Examples = selectGoldenExamples(blueprint.genre, 1);
-    const [ep1Result, coverImg] = await Promise.all([
-      stageScenesV3({
-        blueprint,
-        episodeNumber: 1,
-        story_state: null,
-        prev_last_sentence: null,
-        choice_label: null,
-        banned_lines: [],
-        examples: ep1Examples
-      }),
-      oaiImage(buildCoverPromptV3(blueprint)).catch(e => { console.warn('Cover failed (non-fatal):', e.message); return ''; })
-    ]);
-    if (!ep1Result?.scenes?.length) throw new Error('Episode 1 returned no scenes — please try again.');
-    setGenItem(1, 'done');
-
-    // Stage 3: Validator (ep1 only — cost discipline)
-    setGenItem(2, 'active');
-    setGenEta('Quality check...');
-    try {
-      const validation = await stageValidate(ep1Result, blueprint);
-      if (validation && !validation.pass && validation.target_node && validation.revised_script) {
-        const idx = (validation.target_node - 1);
-        if (ep1Result.scenes[idx]) ep1Result.scenes[idx].script = validation.revised_script;
-      }
-    } catch(e) { console.warn('Validator failed (non-fatal):', e.message); }
-    setGenItem(2, 'done');
-
-    // Assemble story with ep1 + cover (both ready now — cover won't arrive late)
-    setGenItem(3, 'active');
-    setGenEta('Opening your Katha...');
-
-    const partial = assembleStoryV3(blueprint, [ep1Result], coverImg);
     const creditMap = assembleCreditsV3(blueprint);
 
-    // Write to localStorage immediately
-    const localId = Date.now();
-    _v3LocalId = localId;
-    const newEntry = { id: localId, story: _prepareForStorage(partial), creditMap, createdAt: localId };
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORIES_KEY) || '[]').slice(0, 4);
-      saved.unshift(newEntry);
-      localStorage.setItem(STORIES_KEY, JSON.stringify(saved));
-    } catch(e) { console.warn('localStorage write failed:', e.message); }
-
-    // Upload cover to Supabase Storage so DB row gets a persistent URL (not base64)
-    if (partial.cover_img?.startsWith('data:')) {
-      try {
-        const url = await _uploadCoverToStorage(partial.cover_img);
-        if (url) {
-          partial.cover_img = url;
-          // Update localStorage with the URL version
-          try {
-            const saved = JSON.parse(localStorage.getItem(STORIES_KEY) || '[]');
-            const idx = saved.findIndex(e => e.id === localId);
-            if (idx !== -1) { saved[idx].story = _prepareForStorage(partial); localStorage.setItem(STORIES_KEY, JSON.stringify(saved)); }
-          } catch(e) { /* quota — non-critical */ }
-        }
-      } catch(e) { console.warn('Cover upload failed (non-fatal):', e.message); }
-    }
-
-    // Write initial row to DB
-    let dbRowId = null;
-    try {
-      const dbStory = JSON.parse(JSON.stringify(partial));
-      dbStory._creator = _getDisplayName() || 'Katha User';
-      dbRowId = await _saveStoryToDbInitial(dbStory, creditMap);
-      _v3DbRowId = dbRowId;
-      _storiesCacheClear();
-    } catch(e) {
-      console.warn('Initial DB save failed (non-fatal):', e.message);
-    }
-
-    // Navigate to reader immediately — user starts playing ep1 now
-    CURRENT_STORY = partial;
+    CURRENT_STORY = story;
     CURRENT_CREDIT_MAP = creditMap;
-    setGenItem(3, 'done');
-    setGenEta('Episode 1 ready!');
-    setGenBadge('✓ ' + partial.title);
+
+    await saveGeneratedStory(story, creditMap);
+    setGenItem(5, 'done');
+
     clearGeneratingCard();
     renderProfileMyStories();
-    startStory();
+    _storiesCacheClear();
 
-    // Background: generate eps 2-6 + cover while user reads ep1
-    generateRemainingEpisodesInBackground(blueprint, ep1Result, dbRowId, localId, creditMap);
+    const onGeneratingScreen = document.getElementById('s-generating')?.classList.contains('active');
+    if (onGeneratingScreen) {
+      setGenEta('');
+      setGenBadge('✓ ' + story.title + ' — tayyar hai!');
+      setTimeout(() => { startStory(); }, 1500);
+    } else {
+      showToast('✨ ' + story.title + ' tayyar hai! Tap to read.', () => { startStory(); });
+    }
 
   } catch (err) {
-    console.error('V3 Pipeline error:', err);
+    console.error('V4 Pipeline error:', err);
     clearGeneratingCard();
     renderProfileMyStories();
     const msg = err.message || 'unknown error';
@@ -3963,11 +3452,7 @@ function startGenerating() {
   const prompt = (document.getElementById('story-prompt')?.value || '').trim();
   if (!prompt) { alert('Please describe your story idea first!'); return; }
   showScreen('generating');
-  if (USE_V3_ENGINE) {
-    runPipelineV3(prompt);
-  } else {
-    runPipeline(prompt);
-  }
+  runPipelineV4(prompt);
 }
 
 /* ---------- PROFILE SETTINGS ---------- */
