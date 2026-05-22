@@ -55,7 +55,7 @@ This is the working middle-ground between (a) the current pipeline (Bible → Ar
         │  Stage 3: Validator (ep1 only)    │ ◄── gpt-4o-mini, surgical rewriter
         │  → If fail: revise faulty scene   │     Only validates ep1 — make-or-break.
         └─────────────────┬─────────────────┘
-                          │
+                          │ 
             ┌─────────────┴─────────────┐
             ▼ (Instant)                 ▼ (Background)
    ┌─────────────────────┐    ┌───────────────────────────────────┐

@@ -2,3 +2,8 @@
 .obsidian/
 .claude/
 *.napkin
+.gstack/
+*.dmg
+*.docx
+test-output-*/
+design-audit*/
