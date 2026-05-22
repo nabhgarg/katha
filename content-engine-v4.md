@@ -25,6 +25,14 @@
 - **Retry logic** — episode generation retries up to 3× with 2s/4s backoff on timeout or empty response.
 - **Separate continuity per branch** — `prev_last_sentence_a` and `prev_last_sentence_b` tracked independently so Branch B episodes never inherit Branch A's ending.
 
+**Added in v4.2 (2026-05-22, second pass):**
+- **User prompt fidelity constraint** — Architect user prompt now contains a non-negotiable rule: every specific element the user mentioned (traits, profession, setting, named events, relationships) must appear in the blueprint exactly as described. Prevents the Architect from generalizing or substituting user-provided specifics.
+- **Choice subtext removed from UI and schema** — `choice_a.subtext` / `choice_b.subtext` fields removed. They were rendered under the choice buttons and made decisions feel preachy by spelling out the moral. The value-conflict principle is preserved in the Architect prompt; the label alone now does the work on screen.
+- **Protagonist enriched** — added `story_goal`, `motivation`, `nature`, `past` fields. Screenwriter receives them in STORY CONTEXT so character reactions feel grounded across all 6 episodes instead of being inferred from voice alone. `past` is what the protagonist remembers; `secret` remains what is hidden.
+- **Physical-detail rule removed from screenwriter** — the line "use ONE specific physical detail (smell, sound, texture)" was creating a tic (every scene opened with a sensory noun). Principle preserved through the ANTI-PATTERN example block.
+- **Speech tic frequency cap** — explicit limit added: at most once per scene, never on consecutive dialogue lines, never opens more than one line per episode. Prevents the tic from becoming a stammer.
+- **Story rules wording softened** — "VISIBLE and FALSIFIABLE" → "CONCRETE and CHECKABLE." Same constraint, less jargon, easier for the model to follow.
+
 **Added in v4.1 (2026-05-22):**
 - **Story state tracking** (`stageStoryState`) — after each episode, a compact JSON state is extracted (relationships, active mysteries, emotional state, objects, character goals) and passed to the next episode's screenwriter. Prevents later episodes from ignoring earlier story developments. Uses `gpt-5.4-mini`, max 200 tokens, fire-and-forget on failure (non-fatal).
 - **Episode image persistence** — all episode images (both `gpt-image-1` base64 and Pollinations CDN URLs) are uploaded to Supabase Storage before DB save. The stored story always has durable image URLs.
