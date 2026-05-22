@@ -1,6 +1,6 @@
 # Katha Content Engine v4 — Production Specification
 
-**Status:** Live in `index.html` (main branch).
+**Status:** Live in `index.html` (main branch). Spec last synced with code: 2026-05-22.
 **Promoted from v3:** Full v3 pipeline preserved. v4 adds dual-branch generation, tighter architect quality controls, and minimal scene format.
 
 ---
@@ -28,7 +28,7 @@
 **Added in v4.1 (2026-05-22):**
 - **Story state tracking** (`stageStoryState`) — after each episode, a compact JSON state is extracted (relationships, active mysteries, emotional state, objects, character goals) and passed to the next episode's screenwriter. Prevents later episodes from ignoring earlier story developments. Uses `gpt-5.4-mini`, max 200 tokens, fire-and-forget on failure (non-fatal).
 - **Episode image persistence** — all episode images (both `gpt-image-1` base64 and Pollinations CDN URLs) are uploaded to Supabase Storage before DB save. The stored story always has durable image URLs.
-- **Scene structure: interleaved action beats** — opening action block is now 2-3 SHORT sentences, followed by 3-5 dialogue exchanges with brief (1-2 sentence) action beats between dialogue lines. More dynamic pacing than the strict "action block then dialogue only" format.
+- **Scene structure: interleaved action beats** — opening action block is 2 SHORT sentences max, followed by EXACTLY 2 dialogue exchanges with ONE action beat between them. Kept tight for the 30% text panel — more than 2 dialogue lines causes panel overflow.
 - **Architect prompt quality tightening** — `secret` must be a specific past event naming what happened, who was involved, and what was concealed. `story_rules` must each be a falsifiable visible fact. `target_cliffhanger` must be a physical impossibility or external threat (not internal reflection). `choice subtext` encodes a value conflict. `voice_card` must show 3 different emotional registers; speech tic must NOT open every line.
 - **Validator checks expanded** — checks 8 (story rule contradiction) and 9 (banned-lines echo) added.
 - **Scene 1 hook rule** — Scene 1 of every episode must open with a line that creates an unanswered question within the first 10 words.
@@ -218,13 +218,23 @@ GENRE FRAMEWORK:
 - MYTHOLOGY: A modern character is disrupted by an ancient or cosmic force. The supernatural arrives through physical wrongness, never through music or vocabulary.
 
 CORE PRINCIPLES:
-1. Every cliffhanger must be a PHYSICAL IMPOSSIBILITY or EXTERNAL THREAT — not internal reflection. WRONG: "She realized she could never trust him." RIGHT: "The door was locked from the inside — and she was the only one with a key."
-2. The `secret` field must be a SPECIFIC PAST EVENT involving a NAMED CHARACTER — not a vague hidden truth. WRONG: "Raj has a dark past." RIGHT: "Raj was in the car the night Priya's brother died, and he never told her."
-3. `story_rules` must be VISIBLE and FALSIFIABLE facts a writer can check scene-by-scene. WRONG: "trust is fragile." RIGHT: "Arjun works the 11pm-7am security shift alone every night."
-4. `choice_a.subtext` and `choice_b.subtext` must name the VALUE IN CONFLICT — survival vs loyalty, ambition vs love, truth vs protection. Not a description of the action taken.
-5. `scene_objectives_a` and `scene_objectives_b` for each episode must DIVERGE meaningfully — the player's choice should produce visibly different Scene 1 openings and different escalation paths.
+1. The `secret` is a specific hidden past event — a concrete fact, not an interpretation. It must name what happened, who was involved, and what was concealed. WRONG: "The protagonist carries guilt from his past." RIGHT: "Seven years ago Ravi hit a cyclist with his car, filed a false police report blaming the cyclist, and the family never learned the truth."
+2. `story_rules` must be VISIBLE and FALSIFIABLE. A rule is good if breaking it would be immediately obvious to any reader. WRONG: "The faceless man represents fear." RIGHT: "Ravi has never owned or driven a vehicle since age 19 — he takes autos everywhere."
+3. `target_cliffhanger` is the exact Hinglish sentence Scene 3 ends on, word for word. It must be a physical impossibility or an external threat made visible — NOT internal reflection. WRONG: "Matlab, kya woh sab meri wajeh se tha?" (internal reflection). RIGHT: "Woh aadmi bina chehre ke, bina pair ki awaaz ke, seedha darwaze ke doosri taraf khada tha." (physical impossibility).
+4. `choice_a` and `choice_b` encode a VALUE CONFLICT — not just opposite actions. Each choice sacrifices a different value: survival vs loyalty, truth vs safety, self vs others. The subtext names what the player is giving up, not just what they're doing. WRONG subtext: "Risky navigation through bends." RIGHT subtext: "You survive — but abandon someone who trusted you."
+5. Episodes must escalate. Ep1 establishes; eps 2-5 complicate and branch; ep6 resolves.
 
-OUTPUT: Single valid JSON object, no markdown fences.
+SPEECH TIC RULES (critical):
+- `speech_tic` must be a Hinglish verbal habit: something like "matlab", "dekh", "sach mein", "haan toh", "kyun nahi", "bas aise hi", "waise bhi", "kya pata".
+- NEVER use English filler words: "you know", "y'know", "I mean", "like", "basically", "literally".
+- The tic must be a word or phrase an Indian would actually use mid-conversation.
+- `voice_card` lines must be primarily Hinglish — Hindi syntax with natural English words only.
+- The tic appears NATURALLY — sometimes mid-sentence, sometimes at the start. It must NOT open every voice_card line. It is a habit, not a prefix.
+- The 3 voice_card lines must show 3 DIFFERENT emotional registers: one casual/relaxed, one uncertain/worried, one under pressure/urgent.
+- WRONG voice_card (tic prefix on every line): "Matlab, yeh sahi nahi hai." / "Matlab, kya kar raha hai woh?" / "Matlab, bhago yahan se!"
+- RIGHT voice_card (tic appears naturally, different emotions): "Yaar sun, aaj office mein kuch ajeeb hua — matlab bilkul samajh nahi aaya." / "Woh ladka... kya pata uska kya irada tha." / "Ek kaam kar, phone mat rakh — main aa raha hoon abhi."
+
+OUTPUT: A single valid JSON object. No markdown fences. Start with { and end with }.
 ```
 
 **User prompt:**
@@ -232,10 +242,9 @@ OUTPUT: Single valid JSON object, no markdown fences.
 ```
 User premise: "<USER_PROMPT>"
 
-Build the complete blueprint. Generate all 6 episodes with:
-- scene_objectives (ep1), scene_objectives_a + scene_objectives_b (eps 2-6)
-- target_cliffhanger (each episode)
-- choice_question + choice_a + choice_b (eps 1-5 only)
+Build the complete blueprint. Include all 6 episodes. Episodes 1-5 have choice_question, choice_a, choice_b. Episode 6 omits those fields (no choice, it resolves).
+
+For episodes 2-6, also include "scene_objectives_a" and "scene_objectives_b". CRITICAL: scene_objectives_a[0] MUST describe the specific physical situation the player enters as a direct consequence of choosing choice_a from the previous episode. scene_objectives_b[0] MUST describe the specific physical situation from choosing choice_b. These are causally tied to the choice label — not generic story beats. Example: if choice_a was "Bhaago wahan se" then scene_objectives_a[0] = "Scene 1 — protagonist mid-run, faceless man visible in auto mirror still chasing". If choice_b was "Rukne ko kaho" then scene_objectives_b[0] = "Scene 1 — auto has stopped, protagonist now face-to-face with the faceless man on a silent road".
 
 Schema:
 <INLINE SCHEMA FROM SECTION 2.1>
@@ -258,14 +267,14 @@ OUTPUT FORMAT (CRITICAL):
 - Each scene is a single string in the "script" field.
 - Action/setting goes inside *asterisks*. Dialogue goes outside asterisks, on its own line.
 - No quotation marks. No attribution tags ("Rahul said:" is forbidden). Never nest asterisks.
-- SCENE STRUCTURE: ONE opening *action block* (exactly 3-4 SHORT sentences — place, time, one sensory detail, nothing more) followed by 2-3 dialogue lines. That's it. Do NOT add a second *action block* anywhere in the scene. Do NOT interleave action and dialogue.
-- WRONG: *Office mein sab log tha.* / Rohan, kab aaya? / *Woh muskuraya.* / Abhi.
-- RIGHT: *Office ki tenth floor. Shaam ke 6:41. AC band tha — sweat ki mehak.* / Rohan, kab aaya? / Mujhe hi pata nahi.
+- SCENE STRUCTURE: ONE opening *action block* (2 SHORT sentences max — place, time, one physical anchor) followed by EXACTLY 2 dialogue exchanges (2 lines of dialogue total — no more). Between dialogue lines, ONE *action beat* of 1 sentence. Total scene: opening block + 2 dialogue lines + 1 action beat between them. Keep it tight.
+- WRONG: *Office mein sab log the. Tension tha. Rohan nervous tha. Uski palms paseeni thi.* / Kab aaya? / Abhi.
+- RIGHT: *Office ki tenth floor. Shaam ke 6:41. AC band tha — sweat ki mehak.* / Rohan, kab aaya? / *Woh ruk gaya, jawaab dene se pehle.* / Abhi hi.
 
-NARRATOR LANGUAGE (CRITICAL):
-- The narrator (everything inside *asterisks*) is Hindi-dominant Hinglish. Primary language is Hindi in Roman script.
+NARRATOR LANGUAGE (CRITICAL — applies to EVERY *action beat* in the scene, not just the opening):
+- Every single *asterisk block* anywhere in the scene is Hindi-dominant Hinglish. No exceptions.
 - English enters ONLY where an urban Indian person would naturally use it — "exit", "meeting", "phone", "deadline". Not as narration style.
-- NO literary English inside asterisks: no "she felt a chill", no "the atmosphere was tense", no "he couldn't help but notice".
+- NO literary English constructions anywhere inside asterisks: no "she felt a chill", no "the atmosphere was tense", no "he couldn't help but notice".
 - WRONG: *She felt nervous as she entered the crowded room.*
 - RIGHT: *Haath kaamp raha tha. Andar se awaaz aa rahi thi — bahut log the, bahut shor.*
 
@@ -275,11 +284,13 @@ LANGUAGE:
 - Concrete object similes over adjective declarations: "like a glass placed too close to a table edge" > "scared."
 - Repetition with one altered element does emotional work.
 - Shortest sentence in a scene is the heaviest. Land scenes on short final sentences.
+- One Sanskrit or Urdu loanword per scene maximum — when one appears, it lands with weight. Do not pile them.
 - Direct address (beta, yaar, sir, bhaiya) is the load-bearing texture of Indian dialogue.
 
 CRAFT:
-- Open scenes mid-action. No backstory or exposition.
-- When grounding a place: use ONE specific physical detail (a smell, a sound, a texture) — not generic atmosphere. Specific ("chai ki jagah cigarette ka dhuaan") beats generic ("room was tense") every time.
+- Scene 1 of every episode must open with a hook — a line that creates an unanswered question in the reader's mind within the first 10 words. WRONG: *Rahul office pahuncha.* RIGHT: *Rahul ne phone uthaya — tera call nahi tha.*
+- Open all scenes mid-action. No backstory or exposition.
+- When grounding a place: use ONE specific physical detail (smell, sound, texture) — generic atmosphere ("the room was tense") is forbidden.
 - Show emotion through action, never through statement.
 - Scene 3 MUST end with this exact sentence word for word: "<TARGET_CLIFFHANGER>"
 
@@ -318,7 +329,7 @@ Scene objectives:
 2. <OBJ_2>
 3. <OBJ_3>
 
-CLIFFHANGER REQUIREMENT: Scene 3 must end with this sentence copied word for word:
+CLIFFHANGER REQUIREMENT: Scene 3 must end with this sentence copied word for word — do not paraphrase, do not translate, do not alter a single word:
 "<TARGET_CLIFFHANGER>"
 
 Output:
@@ -345,12 +356,14 @@ You audit one episode of three scenes for structural quality before it ships to 
 
 CHECKS:
 1. Does Scene 3 end on the exact target_cliffhanger sentence?
-2. Does each scene open mid-action with no exposition?
+2. Does each scene open mid-action with no exposition — and does Scene 1 open with a hook that creates an unanswered question?
 3. Are any physical details specific (not generic) where they appear?
 4. Are emotions shown through action, not stated?
 5. Does dialogue avoid attribution tags?
-6. Does each scene follow the correct structure: ONE short action block (3-4 sentences) then dialogue ONLY — no second action block, no interleaving?
+6. Do action beats between dialogue lines stay at 1-2 sentences (not paragraphs)?
 7. Does code-switching happen at the emotionally loaded word?
+8. Does any scene contradict the story rules?
+9. Does any phrase echo or paraphrase the banned-lines cache?
 
 If all checks pass: set pass true.
 If any check fails: set pass false, identify the single worst-failing scene (target_node 1/2/3), and produce a corrected revised_script for THAT SCENE ONLY.
