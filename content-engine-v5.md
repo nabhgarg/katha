@@ -1,4 +1,4 @@
-# Katha Content Engine — Architecture & Prompts v3
+# Katha Content Engine — Architecture & Prompts v5
 
 > This document reflects the final state of the pipeline after live testing across a full 6-episode story ("Pyaar Ka Jung"). Every rule here was either validated by output or added to fix a real failure. Nothing is theoretical.
 
