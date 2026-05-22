@@ -2318,7 +2318,6 @@ async function stageArchitect(userPrompt) {
     "motivation": "one sentence — why this matters to them personally",
     "nature": "1-2 word disposition — impulsive / guarded / observant / loyal-to-a-fault / etc.",
     "past": "one specific prior event that shapes how they react — different from secret; this one they remember, the secret is what's hidden",
-    "speech_tic": "their verbal habit in one phrase",
     "voice_card": ["casual/relaxed — natural Hinglish", "uncertain/worried — different emotion", "under pressure/urgent — stressed register"]
   },
   "characters": [{"name": "first name", "role": "relationship to protagonist and story function"}],
@@ -2350,16 +2349,12 @@ CORE PRINCIPLES:
 4. choice_a and choice_b must encode a real character-level tension — each side sacrifices something different (survival vs loyalty, truth vs safety, self vs others). The label itself stays concrete and short (3-5 words, what the player does); the trade-off lives in what each choice causes in the next episode, not in spelled-out moral text. WRONG label: "Sacrifice your honour for safety." RIGHT label: "Chup raho aur nikalo." Let the player feel the cost; do not state it.
 5. Episodes must escalate. Ep1 establishes; eps 2-5 complicate and branch; ep6 resolves.
 
-SPEECH TIC RULES (critical):
-- speech_tic must be a Hinglish verbal habit: something like "matlab", "dekh", "sach mein", "haan toh", "kyun nahi", "bas aise hi", "waise bhi", "kya pata".
-- NEVER use English filler words: "you know", "y'know", "I mean", "like", "basically", "literally".
-- The tic must be a word or phrase an Indian would actually use mid-conversation.
+VOICE CARD RULES:
 - voice_card lines must be primarily Hinglish — Hindi syntax with natural English words only.
-- The tic appears NATURALLY — sometimes mid-sentence, sometimes at the start. It must NOT open every voice_card line. It is a habit, not a prefix.
-- FREQUENCY CAP (critical): in any given episode the speech_tic appears AT MOST once per scene, NEVER in consecutive dialogue lines, and NEVER opens more than one line in the whole episode. If unsure, leave it out — silence beats a forced tic.
-- The 3 voice_card lines must show 3 DIFFERENT emotional registers: one casual/relaxed, one uncertain/worried, one under pressure/urgent.
-- WRONG voice_card (tic prefix on every line): "Matlab, yeh sahi nahi hai." / "Matlab, kya kar raha hai woh?" / "Matlab, bhago yahan se!"
-- RIGHT voice_card (tic appears naturally, different emotions): "Yaar sun, aaj office mein kuch ajeeb hua — matlab bilkul samajh nahi aaya." / "Woh ladka... kya pata uska kya irada tha." / "Ek kaam kar, phone mat rakh — main aa raha hoon abhi."
+- The 3 lines must show 3 DIFFERENT emotional registers: one casual/relaxed, one uncertain/worried, one under pressure/urgent.
+- Each line should reveal how this specific person speaks — their rhythm, their vocabulary, how they hold back or push forward. The voice emerges from the lines themselves, not from a named tic.
+- WRONG (generic registers, no character): "Yeh sahi nahi hai." / "Kya kar raha hai woh?" / "Bhago yahan se!"
+- RIGHT (specific person, distinct voice): "Yaar sun, aaj office mein kuch ajeeb hua — bilkul samajh nahi aaya." / "Woh ladka... kya pata uska kya irada tha." / "Ek kaam kar, phone mat rakh — main aa raha hoon abhi."
 
 OUTPUT: A single valid JSON object. No markdown fences. Start with { and end with }.` },
     { role: 'user', content: `User premise: "${userPrompt}"
@@ -2446,7 +2441,7 @@ STORY CONTEXT:
 Genre: ${blueprint.genre} | City: ${blueprint.city}
 Story rules: ${(blueprint.story_rules || []).join(' | ')}
 Secret (drives subtext — never name it directly): ${blueprint.secret || ''}
-Protagonist: ${blueprint.protagonist?.name}. Speech tic: ${blueprint.protagonist?.speech_tic}
+Protagonist: ${blueprint.protagonist?.name}
 Protagonist nature: ${blueprint.protagonist?.nature || ''}
 Protagonist's story goal: ${blueprint.protagonist?.story_goal || ''}
 Why it matters to them: ${blueprint.protagonist?.motivation || ''}

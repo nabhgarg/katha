@@ -1,4 +1,4 @@
-# Katha Content Engine — Production Specification
+****# Katha Content Engine — Production Specification
 
 **Current version:** v4.2
 **Status:** Live in `index.html` (main branch). Spec last synced with code: 2026-05-22.
@@ -12,7 +12,7 @@
 - **Choice subtext removed** — `choice_a.subtext` / `choice_b.subtext` fields dropped from schema and UI. Displaying the value conflict as text under the button was preachy. Value-conflict principle preserved as architect reasoning; label alone now does the work.
 - **Protagonist enriched** — added `story_goal`, `motivation`, `nature`, `past` to protagonist schema. All four passed into screenwriter STORY CONTEXT so character reactions are grounded, not inferred from voice alone.
 - **Physical-detail tic removed** — "use ONE specific physical detail (smell, sound, texture)" was creating formulaic scene openings. Removed. ANTI-PATTERN block still teaches the principle by example.
-- **Speech tic frequency cap** — at most once per scene, never on consecutive dialogue lines, never opens more than one line per episode.
+- **Speech tic removed** — `speech_tic` field dropped from protagonist schema entirely. Replaced with stronger VOICE CARD RULES: the model finds the character's verbal rhythm through 3 emotionally distinct sample lines, not a named repetitive habit. Prevents forced verbal tics.
 - **Story rules wording** — "VISIBLE and FALSIFIABLE" → "CONCRETE and CHECKABLE." Same constraint, less jargon.
 
 ### v4.1 (2026-05-22)
@@ -135,7 +135,6 @@
     "motivation": "string (one sentence — why this matters to them personally)",
     "nature": "string (1-2 word disposition — impulsive / guarded / observant / loyal-to-a-fault)",
     "past": "string (one specific prior event that shapes reactions — different from secret; this one they remember)",
-    "speech_tic": "string (Hinglish verbal habit — used naturally mid-sentence, not as prefix)",
     "voice_card": [
       "string (casual/relaxed register)",
       "string (uncertain/worried register)",
@@ -216,16 +215,12 @@ CORE PRINCIPLES:
 4. choice_a and choice_b must encode a real character-level tension — each side sacrifices something different (survival vs loyalty, truth vs safety, self vs others). The label itself stays concrete and short (3-5 words, what the player does); the trade-off lives in what each choice causes in the next episode, not in spelled-out moral text. WRONG label: "Sacrifice your honour for safety." RIGHT label: "Chup raho aur nikalo." Let the player feel the cost; do not state it.
 5. Episodes must escalate. Ep1 establishes; eps 2-5 complicate and branch; ep6 resolves.
 
-SPEECH TIC RULES (critical):
-- speech_tic must be a Hinglish verbal habit: something like "matlab", "dekh", "sach mein", "haan toh", "kyun nahi", "bas aise hi", "waise bhi", "kya pata".
-- NEVER use English filler words: "you know", "y'know", "I mean", "like", "basically", "literally".
-- The tic must be a word or phrase an Indian would actually use mid-conversation.
+VOICE CARD RULES:
 - voice_card lines must be primarily Hinglish — Hindi syntax with natural English words only.
-- The tic appears NATURALLY — sometimes mid-sentence, sometimes at the start. It must NOT open every voice_card line. It is a habit, not a prefix.
-- FREQUENCY CAP (critical): in any given episode the speech_tic appears AT MOST once per scene, NEVER in consecutive dialogue lines, and NEVER opens more than one line in the whole episode. If unsure, leave it out — silence beats a forced tic.
-- The 3 voice_card lines must show 3 DIFFERENT emotional registers: one casual/relaxed, one uncertain/worried, one under pressure/urgent.
-- WRONG voice_card (tic prefix on every line): "Matlab, yeh sahi nahi hai." / "Matlab, kya kar raha hai woh?" / "Matlab, bhago yahan se!"
-- RIGHT voice_card (tic appears naturally, different emotions): "Yaar sun, aaj office mein kuch ajeeb hua — matlab bilkul samajh nahi aaya." / "Woh ladka... kya pata uska kya irada tha." / "Ek kaam kar, phone mat rakh — main aa raha hoon abhi."
+- The 3 lines must show 3 DIFFERENT emotional registers: one casual/relaxed, one uncertain/worried, one under pressure/urgent.
+- Each line should reveal how this specific person speaks — their rhythm, their vocabulary, how they hold back or push forward. The voice emerges from the lines themselves, not from a named tic.
+- WRONG (generic registers, no character): "Yeh sahi nahi hai." / "Kya kar raha hai woh?" / "Bhago yahan se!"
+- RIGHT (specific person, distinct voice): "Yaar sun, aaj office mein kuch ajeeb hua — bilkul samajh nahi aaya." / "Woh ladka... kya pata uska kya irada tha." / "Ek kaam kar, phone mat rakh — main aa raha hoon abhi."
 
 OUTPUT: A single valid JSON object. No markdown fences. Start with { and end with }.
 ```
@@ -292,7 +287,7 @@ STORY CONTEXT:
 Genre: <GENRE> | City: <CITY>
 Story rules: <STORY_RULES>
 Secret (drives subtext — never name it directly): <SECRET>
-Protagonist: <NAME>. Speech tic: <SPEECH_TIC>
+Protagonist: <NAME>
 Protagonist nature: <NATURE>
 Protagonist's story goal: <STORY_GOAL>
 Why it matters to them: <MOTIVATION>
@@ -495,7 +490,7 @@ STORY STATE (maintain continuity from previous episode):
 | Choice design | Action description | Value conflict in subtext | — | Subtext field removed; conflict lives in consequences, not text |
 | Branch divergence | scene_objectives only | scene_objectives_a + _b | scene_objectives_a[0] = exact physical situation post-choice | — |
 | Scene format | Interleaved | ONE action block + dialogue | 2-sentence max opening, 2 exchanges, 1 action beat | — |
-| Voice card tic | Could prefix every line | Natural mid-sentence use | Must NOT open every line; 3 emotional registers | Frequency cap: ≤1 per scene, no consecutive lines |
+| Voice card / tic | Could prefix every line | Natural mid-sentence use | Must NOT open every line; 3 emotional registers | speech_tic field removed — voice emerges from voice_card lines, no named tic |
 | Continuity | None | prev_last_sentence per branch | + story_state JSON per branch | — |
 | Protagonist depth | Name + tic + voice card | Same | Same | + story_goal, motivation, nature, past |
 | User prompt fidelity | Not enforced | Not enforced | Not enforced | Non-negotiable: user specifics preserved exactly |
