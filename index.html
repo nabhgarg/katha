@@ -322,7 +322,7 @@
     left: 0;
     right: 0;
     width: 100%;
-    height: 45vh;
+    height: 70vh;
     object-fit: cover;
     z-index: 1;
     transform-origin: center center;
@@ -336,7 +336,7 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 45vh;
+    height: 70vh;
     background:
       radial-gradient(ellipse at 50% 30%, rgba(255,176,32,0.18), transparent 70%),
       linear-gradient(180deg, #1a1a2e 0%, #08080F 100%);
@@ -347,11 +347,12 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 45vh;
+    height: 70vh;
     background: linear-gradient(to bottom,
-      rgba(8,8,15,0.55) 0%,
-      rgba(8,8,15,0.05) 30%,
-      rgba(8,8,15,0) 60%);
+      rgba(8,8,15,0.0) 0%,
+      rgba(8,8,15,0.0) 50%,
+      rgba(8,8,15,0.7) 85%,
+      rgba(8,8,15,1.0) 100%);
     z-index: 2;
     pointer-events: none;
   }
@@ -414,17 +415,17 @@
   }
   .subtitle-stripe {
     position: absolute;
-    top: 45vh;
+    top: 70vh;
     bottom: 0;
     left: 0;
     right: 0;
     z-index: 15;
     background: #08080F;
-    border-top: 1px solid rgba(255,176,32,0.18);
-    padding: 18px 18px 22px;
+    border-top: 1px solid rgba(255,176,32,0.15);
+    padding: 12px 18px 14px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0;
     overflow-y: auto;
     cursor: pointer;
   }
@@ -447,28 +448,39 @@
   }
   .v3-scene-ctx {
     display: block;
-    font-size: 13px;
-    color: #A0A0B8;
+    font-size: 12px;
+    color: #E8820C;
+    font-style: italic;
     font-weight: 400;
-    line-height: 1.55;
-    margin-bottom: 10px;
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+  .v3-speaker {
+    display: block;
+    font-size: 10px;
+    color: #FFB020;
+    font-variant: small-caps;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    margin-top: 8px;
+    margin-bottom: 1px;
   }
   .v3-dialogue {
     display: block;
-    font-size: 17px;
+    font-size: 16px;
     color: #FFFFFF;
-    font-weight: 600;
-    line-height: 1.45;
-    margin: 3px 0;
+    font-weight: 700;
+    line-height: 1.4;
+    margin: 0 0 2px;
   }
   .v3-action {
     display: block;
-    font-size: 12px;
-    color: #A0A0B8;
+    font-size: 11px;
+    color: #8888A8;
     font-style: italic;
     font-weight: 400;
     line-height: 1.4;
-    margin: 3px 0;
+    margin: 4px 0 2px;
   }
   .sub-body {
     font-size: 16px;
@@ -478,14 +490,16 @@
     padding: 0 2px;
   }
   .sub-hint {
-    font-size: 11px;
-    color: rgba(255,176,32,0.7);
-    font-weight: 500;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
+    font-size: 13px;
+    color: #FFB020;
+    font-weight: 600;
+    letter-spacing: 0.3px;
     align-self: flex-end;
-    margin-top: 2px;
-    animation: blink 1.6s ease-in-out infinite;
+    position: sticky;
+    bottom: 0;
+    background: #08080F;
+    padding-top: 6px;
+    padding-bottom: 2px;
   }
   @keyframes blink {
     0%, 100% { opacity: 0.55; }
@@ -1369,7 +1383,7 @@
       <div class="subtitle-stripe" onclick="advanceScene()">
         <div class="sub-hl" id="sub-hl">—</div>
         <div class="sub-body" id="sub-body">—</div>
-        <div class="sub-hint">tap to continue →</div>
+        <div class="sub-hint">Aage →</div>
       </div>
     </section>
 
@@ -1909,9 +1923,19 @@ function renderScene() {
     const _esc = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     let html = '';
     for (const n of nodes) {
-      if (n.type === 'SCENE_CONTEXT') html += `<span class="v3-scene-ctx">${_esc(n.text)}</span>`;
-      else if (n.type === 'CHARACTER_DIALOGUE') html += `<span class="v3-dialogue">${_esc(n.text)}</span>`;
-      else if (n.type === 'ACTION_PROSE') html += `<span class="v3-action">${_esc(n.text)}</span>`;
+      if (n.type === 'SCENE_CONTEXT') {
+        html += `<span class="v3-scene-ctx">${_esc(n.text)}</span>`;
+      } else if (n.type === 'CHARACTER_DIALOGUE') {
+        const speakerMatch = n.text.match(/^([A-Z][A-Z\s]{1,18}):\s*"?(.+?)"?$/);
+        if (speakerMatch) {
+          html += `<span class="v3-speaker">${_esc(speakerMatch[1].trim())}</span>`;
+          html += `<span class="v3-dialogue">${_esc(speakerMatch[2])}</span>`;
+        } else {
+          html += `<span class="v3-dialogue">${_esc(n.text)}</span>`;
+        }
+      } else if (n.type === 'ACTION_PROSE') {
+        html += `<span class="v3-action">${_esc(n.text)}</span>`;
+      }
     }
     hlEl.classList.add('v3-mode');
     hlEl.innerHTML = html || '—';
