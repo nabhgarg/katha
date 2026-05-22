@@ -8,8 +8,8 @@
 ## 0. What changed vs v3
 
 **Kept from v3:**
-- `stageArchitect` (gpt-4o) → single blueprint call with all 6 episodes
-- `stageScenesV3` (gpt-4.1-mini) → screenwriter, `{scene_number, script}` output
+- `stageArchitect` (gpt-5.4) → single blueprint call with all 6 episodes
+- `stageScenesV3` (gpt-5.4-mini) → screenwriter, `{scene_number, script}` output
 - `stageValidate` — quality validator, ep1 only
 - `parseScriptStringToUiNodes()` — client-side `*action*` / dialogue parser
 - Golden scene few-shot injection
@@ -51,7 +51,7 @@
       │
       ▼
 ┌─────────────────────────────────────┐
-│  Stage 1: The Architect             │  gpt-4o, single call
+│  Stage 1: The Architect             │  gpt-5.4, single call
 │  → Full blueprint: all 6 episodes   │  Returns: title, genre, city, secret,
 │  → scene_objectives_a + _b per ep   │  story_rules, protagonist, characters,
 │  → target_cliffhanger per ep        │  voice_card, episodes[6]
@@ -63,7 +63,7 @@
 ┌─────────────────┐  ┌─────────────────┐
 │  Episode 1       │  │  Cover Image     │
 │  (no branch)     │  │  gpt-image-1     │
-│  gpt-4.1-mini   │  │  (DALL-E)        │
+│  gpt-5.4-mini   │  │  (DALL-E)        │
 └────────┬────────┘  └─────────────────┘
          │
     ┌────┴──────────────────┐
@@ -71,7 +71,7 @@
 ┌────────────────┐  ┌────────────────────┐
 │  Validator     │  │  Ep1 Image          │
 │  (ep1 only)    │  │  gpt-image-1 (DALL-E│
-│  gpt-4.1-mini  │  └────────────────────┘
+│  gpt-5.4-mini  │  └────────────────────┘
 └────────┬───────┘
          │  (if fail: patch the one bad scene)
          ▼
@@ -204,7 +204,7 @@
 
 ### 3.1 The Architect (Stage 1)
 
-- **Model:** `gpt-4o`
+- **Model:** `gpt-5.4`
 - **Response format:** `json_object`
 
 **System prompt:**
@@ -245,7 +245,7 @@ Schema:
 
 ### 3.2 The Screenwriter (Stages 2 + 4)
 
-- **Model:** `gpt-4.1-mini`
+- **Model:** `gpt-5.4-mini`
 - **Response format:** `json_object`
 - **max_tokens:** 2000
 
@@ -335,7 +335,7 @@ Output:
 
 ### 3.3 The Validator (Stage 3 — ep1 only)
 
-- **Model:** `gpt-4.1-mini`
+- **Model:** `gpt-5.4-mini`
 - **Purpose:** Audits ep1 and surgically rewrites the single worst-failing scene.
 
 **System prompt:**

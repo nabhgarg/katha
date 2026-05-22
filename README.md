@@ -45,16 +45,16 @@ GitHub Pages auto-deploys within ~1 minute of each push to `main`.
 [User prompt]
       │
       ▼
-Stage 1 — Architect (gpt-4o)
+Stage 1 — Architect (gpt-5.4)
   Full 6-episode blueprint: genre, title, characters, scene objectives,
   cliffhangers, branching choices, story rules, protagonist voice.
       │
       ├── Episode 1 + cover image (parallel)
-      │     Stage 2a — Screenwriter (gpt-4.1-mini) → 3 scenes
+      │     Stage 2a — Screenwriter (gpt-5.4-mini) → 3 scenes
       │     Stage 2b — Cover image (gpt-image-1, DALL-E)
       │
       ├── Validate ep1 + ep1 image (parallel)
-      │     Stage 3  — Validator (gpt-4.1-mini) → patches 1 bad scene if needed
+      │     Stage 3  — Validator (gpt-5.4-mini) → patches 1 bad scene if needed
       │     Stage 3b — Episode 1 image (gpt-image-1, DALL-E)
       │
       └── Episodes 2–6 loop (sequential, branches in parallel)
@@ -73,9 +73,9 @@ All 6 episodes + 7 images uploaded to Supabase Storage → single atomic DB save
 **Models used:**
 | Stage | Model | Why |
 |---|---|---|
-| Architect | `gpt-4o` | Needs full blueprint coherence across 6 episodes |
-| Screenwriter | `gpt-4.1-mini` | Fast, cheap, good at following format constraints |
-| Validator | `gpt-4.1-mini` | Surgical scene rewriter |
+| Architect | `gpt-5.4` | Needs full blueprint coherence across 6 episodes |
+| Screenwriter | `gpt-5.4-mini` | Fast, cheap, good at following format constraints |
+| Validator | `gpt-5.4-mini` | Surgical scene rewriter |
 | Story state | `gpt-5.4-mini` | Compact JSON extraction, 200 tokens max |
 | Cover + ep1 images | `gpt-image-1` | Best quality for the two visible-upfront images |
 | Episodes 2–6 images | Pollinations CDN | Free, instant URL, good enough for mid-story |
@@ -113,6 +113,7 @@ See `content-engine-v4.md` for the full spec. Major versions:
 | v3 | 2026-05-20 | Hinglish narrator, SCENE_CONTEXT rendering, parallel cover+ep1, ep6 validator, golden scenes dataset |
 | v4 | 2026-05-21 | Dual-branch generation, upfront full generation, branch divergence fix, story state tracking, image persistence, tightened architect prompts |
 | v4.1 | 2026-05-22 | Screenwriter prompt interleaving fix, validator checks 8+9 (story rules + banned lines), ETA string updated, player UI hard split |
+| v4.2 | 2026-05-22 | Model upgrades: architect gpt-5.4 (was gpt-4o), screenwriter + validator gpt-5.4-mini (already in code, docs corrected) |
 
 ---
 
