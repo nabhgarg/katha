@@ -1646,7 +1646,7 @@
 
   </div>
 
-<script src="golden-scenes.js"></script>
+
 <script>
 /* =================================================================
    KATHA — Interactive Story App
@@ -2268,17 +2268,6 @@ const IMG_STYLE = {
 };
 
 
-function selectGoldenExamples(genre, episodeNumber) {
-  const positionMap = { 1: ['OPENER', 'MIDPOINT'], 6: ['CLIFFHANGER', 'MIDPOINT'] };
-  const positions = positionMap[episodeNumber] || ['MIDPOINT', 'CLIFFHANGER'];
-  const pick = (candidates) => candidates[Math.floor(Math.random() * candidates.length)];
-  return positions.map(pos => {
-    const exact = GOLDEN_SCENES.filter(s => s.genre === genre && s.scene_position === pos);
-    if (exact.length) return pick(exact);
-    const fallback = GOLDEN_SCENES.filter(s => s.scene_position === pos);
-    return fallback.length ? pick(fallback) : null;
-  }).filter(Boolean);
-}
 
 /* ---------- V3: SCRIPT PARSER ---------- */
 function parseScriptStringToUiNodes(scriptString) {
@@ -2370,7 +2359,7 @@ ${schema}` }
   ], 'gpt-5.4');
 }
 
-async function stageScenesV3({ blueprint, episodeNumber, story_state, prev_last_sentence, choice_label, branch, banned_lines, examples }) {
+async function stageScenesV3({ blueprint, episodeNumber, story_state, prev_last_sentence, choice_label, branch, banned_lines }) {
   const epPlan = blueprint.episodes[episodeNumber - 1];
   const isFirst = episodeNumber === 1;
   const sceneObjectives = branch === 'b'
@@ -2395,12 +2384,6 @@ async function stageScenesV3({ blueprint, episodeNumber, story_state, prev_last_
     ? `BANNED PHRASES (do NOT repeat or paraphrase):\n${banned_lines.slice(-24).join('\n')}`
     : '';
 
-  const examplesBlock = examples && examples.length
-    ? examples.map((ex, i) =>
-        `REFERENCE SCENE ${i + 1} (${ex.genre} ${ex.scene_position} — match cadence and sensory specificity, do NOT copy content):\n${ex.script}`
-      ).join('\n\n')
-    : '';
-
   const antiPattern = `ANTI-PATTERN (do NOT write like this):
 Rahul was feeling very nervous. The room felt cold and tense. He said: "Priya, I am worried about this situation." Priya looked at him with concern in her eyes. She said: "I understand your feelings." There was a lot of tension between them.`;
 
@@ -2411,9 +2394,12 @@ OUTPUT FORMAT (CRITICAL):
 - Each scene is a single string in the "script" field.
 - Action/setting goes inside *asterisks*. Dialogue goes outside asterisks, on its own line.
 - EVERY dialogue line MUST start with the speaker's name in ALL-CAPS followed by a colon: "RIYA: Yaar sun..." — no exceptions. No quotation marks. Never nest asterisks.
-- SCENE STRUCTURE: ONE opening *action block* (2 SHORT sentences max — place, time, one physical anchor) followed by EXACTLY 2 dialogue exchanges (2 lines of dialogue total — no more). Between dialogue lines, ONE *action beat* of 1 sentence. Total scene: opening block + 2 dialogue lines + 1 action beat between them. Keep it tight.
+- SCENE STRUCTURE: Open with an *action block*, then let the scene breathe. Dialogue can happen even when a character is alone — calling out, muttering, speaking into a phone. But never use dialogue to announce a discovery or state an emotion out loud ("Yeh marker... main isse pehchanta hoon" is exposition, not dialogue). Never have the same character speak twice in a row.
+- WORD LIMIT: Every *action block* must be under 35 words. Count before writing. If it exceeds 35 words, cut until it doesn't.
+- SCENE LENGTH: Every scene (action blocks + dialogue combined) must be under 80 words total. Count before writing. If it exceeds 80 words, cut dialogue lines first, then trim action blocks.
+- DIALOGUE CAP: Maximum 4 dialogue lines per scene (2 exchanges). No exceptions. Every extra dialogue line you are tempted to write must become an action beat instead — that trade is always better.
 - WRONG: *Office mein sab log the. Tension tha.* / Kab aaya? / Abhi.
-- RIGHT: *Office ki tenth floor. Shaam ke 6:41. AC band tha — sweat ki mehak.* / ROHAN: Kab aaya? / *Woh ruk gaya, jawaab dene se pehle.* / ARJUN: Abhi hi.
+- RIGHT: *Usne file table par rakh di, haath nahi kaanpe — bas ek baar.* / ROHAN: Kab aaya? / *Woh ruk gaya, jawaab dene se pehle.* / ARJUN: Abhi hi.
 
 NARRATOR LANGUAGE (CRITICAL — applies to EVERY *action beat* in the scene, not just the opening):
 - Every single *asterisk block* anywhere in the scene is Hindi-dominant Hinglish. No exceptions.
@@ -2435,7 +2421,8 @@ CRAFT:
 - Scene 1 of every episode must open with a hook — a line that creates an unanswered question in the reader's mind within the first 10 words. WRONG: *Rahul office pahuncha.* RIGHT: *Rahul ne phone uthaya — tera call nahi tha.*
 - Open all scenes mid-action. No backstory or exposition.
 - Show emotion through action, never through statement.
-- Scene 3 MUST end with this exact sentence word for word: "${epPlan.target_cliffhanger || ''}"
+- Use the simplest word that does the job. Never stack two adjectives onto one noun. If a description needs more than one modifier, rewrite it as an action beat instead. WRONG: *hara hua dhua sa register* RIGHT: *aadha jala register* or *register ke pages ki raakh ungliyon pe chipak gayi*
+- Scene 3 MUST end with this exact sentence word for word, placed INSIDE asterisks as a narrator action line (e.g. *${epPlan.target_cliffhanger || ''}*). It must NOT appear outside asterisks as a dialogue line.
 
 STORY CONTEXT:
 Genre: ${blueprint.genre} | City: ${blueprint.city}
@@ -2456,8 +2443,6 @@ ${prevBlock}
 ${choiceBlock}
 ${bannedBlock}
 
-${examplesBlock}
-
 ${antiPattern}
 
 OUTPUT: Single valid JSON object, no markdown fences.` },
@@ -2468,50 +2453,86 @@ Scene objectives:
 2. ${obj2}
 3. ${obj3}
 
-CLIFFHANGER REQUIREMENT: Scene 3 must end with this sentence copied word for word — do not paraphrase, do not translate, do not alter a single word:
-"${epPlan.target_cliffhanger || ''}"
+CLIFFHANGER REQUIREMENT: Scene 3 must end with this sentence copied word for word, wrapped in *asterisks* as a narrator line — do not paraphrase, do not translate, do not alter a single word, do not place it as dialogue outside asterisks:
+*${epPlan.target_cliffhanger || ''}*
+
+HARD LIMITS — check before outputting:
+- Every scene: under 80 total words
+- Every scene: max 4 dialogue lines (2 exchanges)
+- Every action block: under 35 words
 
 Output:
 {
   "scenes": [
     {"scene_number": 1, "script": "..."},
     {"scene_number": 2, "script": "..."},
-    {"scene_number": 3, "script": "... ends with the exact cliffhanger sentence above"}
+    {"scene_number": 3, "script": "... ends with exact cliffhanger inside *asterisks*"}
   ]
 }` }
-  ], undefined, { max_tokens: 2000 });
+  ], undefined, { max_completion_tokens: 2000 });
 }
 
-async function stageValidate(ep1Scenes, blueprint) {
-  const ep1Plan = blueprint.episodes[0];
-  const scriptsText = (ep1Scenes?.scenes || []).map((s, i) => `Scene ${i + 1}:\n${s.script}`).join('\n\n---\n\n');
-  return oaiChat([
-    { role: 'system', content: `You audit one episode of three scenes for structural quality before it ships to players.
+function stageValidate(epScenes, blueprint, episodeNumber = 1) {
+  const epPlan = blueprint.episodes[episodeNumber - 1];
+  const cliffhanger = epPlan?.target_cliffhanger || '';
+  const scenes = epScenes?.scenes || [];
+  const issues = [];
 
-CHECKS:
-1. Does Scene 3 end on the exact target_cliffhanger sentence?
-2. Does each scene open mid-action with no exposition — and does Scene 1 open with a hook that creates an unanswered question?
-3. Are any physical details specific (not generic) where they appear?
-4. Are emotions shown through action, not stated?
-5. Does every dialogue line start with an ALL-CAPS speaker name followed by a colon (e.g. "RIYA: ...")? Missing speaker label is a failure.
-6. Does each scene have EXACTLY 2 dialogue exchanges (exactly 2 spoken lines outside asterisks)? More than 2 is a failure.
-7. Does code-switching happen at the emotionally loaded word?
-8. Does any scene contradict the story rules?
-9. Does any phrase echo or paraphrase the banned-lines cache?
+  for (let i = 0; i < scenes.length; i++) {
+    const script = scenes[i].script || '';
+    const sceneNum = i + 1;
 
-If all checks pass: set pass true.
-If any check fails: set pass false, identify the single worst-failing scene (target_node 1/2/3), and produce a corrected revised_script for THAT SCENE ONLY.
+    // Check 1: cliffhanger is last line of Scene 3 as standalone asterisk block
+    if (sceneNum === 3) {
+      const lines = script.split('\n').map(l => l.trim()).filter(Boolean);
+      const lastLine = lines[lines.length - 1];
+      const expectedBlock = `*${cliffhanger}*`;
+      if (lastLine !== expectedBlock) {
+        issues.push(`Scene 3: cliffhanger is not the final standalone *asterisk block*. Expected: ${expectedBlock}`);
+      }
+    }
 
-Output raw JSON only, no markdown fences:
-{"pass": true|false, "issues": ["..."], "target_node": 1|2|3|null, "revised_script": "..."|null}` },
-    { role: 'user', content: `Story: "${blueprint.title}" (${blueprint.genre})
-Target cliffhanger: "${ep1Plan?.target_cliffhanger || ''}"
-Story rules: ${(blueprint.story_rules || []).join(' | ')}
-Banned phrases (do not repeat or paraphrase): none yet — this is episode 1
+    // Check 2: same character speaking twice in a row
+    const dialogueLines = script.split('\n').filter(l => /^[A-Z][A-Z\s]+:/.test(l.trim()));
+    for (let j = 0; j < dialogueLines.length - 1; j++) {
+      const speaker1 = dialogueLines[j].split(':')[0].trim();
+      const speaker2 = dialogueLines[j + 1].split(':')[0].trim();
+      if (speaker1 === speaker2) {
+        issues.push(`Scene ${sceneNum}: ${speaker1} speaks twice in a row.`);
+        break;
+      }
+    }
 
-Episode 1 scenes:
-${scriptsText}` }
-  ]);
+    // Check 3: action blocks over 35 words
+    const actionBlocks = [...script.matchAll(/\*([^*]+)\*/g)].map(m => m[1]);
+    for (const block of actionBlocks) {
+      const wordCount = block.trim().split(/\s+/).length;
+      if (wordCount > 35) {
+        issues.push(`Scene ${sceneNum}: action block exceeds 35 words (${wordCount} words): "${block.trim().slice(0, 60)}..."`);
+      }
+    }
+
+    // Check 4: dialogue lines missing ALL-CAPS speaker label
+    const allLines = script.split('\n').filter(l => l.trim() && !l.trim().startsWith('*'));
+    for (const line of allLines) {
+      if (!/^[A-Z][A-Z\s]+:\s/.test(line.trim())) {
+        issues.push(`Scene ${sceneNum}: dialogue line missing ALL-CAPS speaker label: "${line.trim().slice(0, 60)}"`);
+      }
+    }
+
+    // Check 5: total scene word count over 80
+    const totalWords = script.trim().split(/\s+/).length;
+    if (totalWords > 80) {
+      issues.push(`Scene ${sceneNum}: total scene length is ${totalWords} words (limit: 80).`);
+    }
+
+    // Check 6: dialogue lines over 4 (2 exchanges)
+    if (dialogueLines.length > 4) {
+      issues.push(`Scene ${sceneNum}: ${dialogueLines.length} dialogue lines (limit: 4).`);
+    }
+  }
+
+  return { pass: issues.length === 0, issues, target_node: null, revised_script: null };
 }
 
 /* ---------- STORY STATE ---------- */
@@ -2527,7 +2548,7 @@ Characters: ${(blueprint.characters || []).map(c => c.name).join(', ')}
 
 Scenes:
 ${scriptsText}` }
-  ], 'gpt-5.4-mini', { max_tokens: 200 });
+  ], 'gpt-5.4-mini', { max_completion_tokens: 200 });
 }
 
 /* ---------- CHECKLIST HELPERS ---------- */
@@ -2681,16 +2702,15 @@ async function runPipelineV4(userPrompt) {
     // Step 2: Episode 1 + cover (DALL-E) in parallel, then validate + ep1 image (DALL-E) in parallel
     setGenItem(1, 'active');
     setGenEta('Writing Episode 1...');
-    const ep1Examples = selectGoldenExamples(blueprint.genre, 1);
     const [ep1Result, coverImg] = await Promise.all([
-      stageScenesV3({ blueprint, episodeNumber: 1, story_state: null, prev_last_sentence: null, choice_label: null, banned_lines: [], examples: ep1Examples }),
+      stageScenesV3({ blueprint, episodeNumber: 1, story_state: null, prev_last_sentence: null, choice_label: null, banned_lines: [] }),
       oaiImage(buildCoverPromptV3(blueprint)).catch(e => { console.warn('Cover failed (non-fatal):', e.message); return ''; })
     ]);
     if (!ep1Result?.scenes?.length) throw new Error('Episode 1 returned no scenes — please try again.');
 
-    // Validate ep1 + generate ep1 DALL-E image in parallel
+    // Validate ep1 (sync) + generate ep1 DALL-E image in parallel
     const [_validation, ep1Img] = await Promise.all([
-      stageValidate(ep1Result, blueprint).catch(e => { console.warn('Validator failed (non-fatal):', e.message); return null; }),
+      Promise.resolve(stageValidate(ep1Result, blueprint, 1)),
       oaiImage(buildEpisodeImagePrompt(blueprint, 1)).catch(e => { console.warn('Ep1 image failed (non-fatal):', e.message); return ''; })
     ]);
     if (_validation && !_validation.pass && _validation.target_node && _validation.revised_script) {
@@ -2719,7 +2739,6 @@ async function runPipelineV4(userPrompt) {
       const prevEpPlan = blueprint.episodes[n - 2];
       const prevChoiceA = prevEpPlan?.choice_a?.label || '';
       const prevChoiceB = prevEpPlan?.choice_b?.label || '';
-      const examples = selectGoldenExamples(blueprint.genre, n);
       const currentBanned = [...banned_lines];
 
       let branchA, branchB;
@@ -2728,8 +2747,8 @@ async function runPipelineV4(userPrompt) {
         try {
           if (attempt > 0) await new Promise(r => setTimeout(r, 2000 * attempt));
           const calls = [];
-          if (!branchA?.scenes?.length) calls.push(stageScenesV3({ blueprint, episodeNumber: n, story_state: story_state_a, prev_last_sentence: prev_last_sentence_a, choice_label: prevChoiceA, branch: 'a', banned_lines: currentBanned, examples }).then(r => { branchA = r; }));
-          if (!branchB?.scenes?.length) calls.push(stageScenesV3({ blueprint, episodeNumber: n, story_state: story_state_b, prev_last_sentence: prev_last_sentence_b, choice_label: prevChoiceB, branch: 'b', banned_lines: currentBanned, examples }).then(r => { branchB = r; }));
+          if (!branchA?.scenes?.length) calls.push(stageScenesV3({ blueprint, episodeNumber: n, story_state: story_state_a, prev_last_sentence: prev_last_sentence_a, choice_label: prevChoiceA, branch: 'a', banned_lines: currentBanned }).then(r => { branchA = r; }));
+          if (!branchB?.scenes?.length) calls.push(stageScenesV3({ blueprint, episodeNumber: n, story_state: story_state_b, prev_last_sentence: prev_last_sentence_b, choice_label: prevChoiceB, branch: 'b', banned_lines: currentBanned }).then(r => { branchB = r; }));
           await Promise.all(calls);
           if (branchA?.scenes?.length && branchB?.scenes?.length) { epErr = null; break; }
           epErr = new Error(`Episode ${n} returned no scenes — please try again.`);
