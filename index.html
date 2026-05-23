@@ -1358,7 +1358,7 @@
       <div class="feed-reel" id="feed-reel">
         <div id="feed-loading" style="display:flex;align-items:center;justify-content:center;height:100vh;color:#A0A0B8;font-size:14px;">Loading stories…</div>
         <div id="feed-empty" style="display:none;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;color:#A0A0B8;text-align:center;padding:32px;">
-          <div style="font-size:32px;">✨</div>
+          <div style="font-size:32px;">◈</div>
           <div style="font-size:16px;font-weight:600;color:#fff;">No stories yet</div>
           <div style="font-size:14px;">Be the first to create one!</div>
         </div>
@@ -1573,7 +1573,7 @@
         <div id="explore-loading" style="padding:32px;text-align:center;color:#A0A0B8;font-size:14px;">Loading stories…</div>
         <div id="explore-grid"></div>
         <div id="explore-empty" style="display:none;text-align:center;padding:64px 24px;color:#A0A0B8;">
-          <div style="font-size:32px;margin-bottom:12px;">✨</div>
+          <div style="font-size:32px;margin-bottom:12px;">◈</div>
           <div style="font-size:16px;font-weight:600;color:#fff;margin-bottom:6px;">No stories yet</div>
           <div style="font-size:14px;">Be the first to create one!</div>
         </div>
@@ -2092,7 +2092,7 @@ function makeChoice(opt) {
       showScreen('player');
     } else if (CURRENT_STORY.version === 'v3') {
       // Background still generating this episode — poll until ready
-      showToast('✨ Loading next episode...');
+      showToast('Loading next episode...');
       const poll = setInterval(() => {
         const s = currentSceneList();
         if (s && s.length > 0) { clearInterval(poll); renderScene(); showScreen('player'); }
@@ -2816,7 +2816,7 @@ async function runPipelineV4(userPrompt) {
       setGenBadge('✓ ' + story.title + ' — tayyar hai!');
       setTimeout(() => { startStory(); }, 1500);
     } else {
-      showToast('✨ ' + story.title + ' tayyar hai! Tap to read.', () => { startStory(); });
+      showToast(story.title + ' tayyar hai! Tap to read.', () => { startStory(); });
     }
 
   } catch (err) {
