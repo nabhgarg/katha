@@ -8,6 +8,8 @@ import { renderProfileMyStories } from './profile.js';
 
 let _pipelineRunning = false;
 let _genPlaceholderActive = false;
+let _stepTimers = [];
+let _pipelineStartTime = 0;
 
 const GEN_STEP_LABELS_V4 = [
   'Designing your story world',
@@ -18,10 +20,17 @@ const GEN_STEP_LABELS_V4 = [
   'Saving your Katha'
 ];
 
+function _formatDuration(ms) {
+  const s = Math.round(ms / 1000);
+  return s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + (s % 60) + 's';
+}
+
 function initGenList(labels) {
   const list = document.getElementById('check-list');
   if (!list) return;
-  list.innerHTML = (labels || GEN_STEP_LABELS_V4).map(s => `<li><span class="ck"></span>${s}</li>`).join('');
+  list.innerHTML = (labels || GEN_STEP_LABELS_V4).map(s => `<li><span class="ck"></span><span class="ck-label">${s}</span><span class="ck-time" style="margin-left:auto;font-size:11px;color:#666;font-weight:400;"></span></li>`).join('');
+  _stepTimers = new Array((labels || GEN_STEP_LABELS_V4).length).fill(null);
+  _pipelineStartTime = Date.now();
 }
 
 function setGenItem(idx, state) {
@@ -29,9 +38,19 @@ function setGenItem(idx, state) {
   if (!list) return;
   const items = list.querySelectorAll('li');
   if (!items[idx]) return;
-  const li = items[idx], ck = li.querySelector('.ck');
-  if (state === 'active') { li.classList.add('active'); if (ck) ck.textContent = '·'; }
-  else if (state === 'done') { li.classList.remove('active'); li.classList.add('done'); if (ck) ck.textContent = '✓'; }
+  const li = items[idx], ck = li.querySelector('.ck'), timeEl = li.querySelector('.ck-time');
+  if (state === 'active') {
+    li.classList.add('active');
+    if (ck) ck.textContent = '·';
+    _stepTimers[idx] = Date.now();
+    _updateFloatingBanner(GEN_STEP_LABELS_V4[idx] || 'Working...');
+  } else if (state === 'done') {
+    li.classList.remove('active'); li.classList.add('done');
+    if (ck) ck.textContent = '✓';
+    if (timeEl && _stepTimers[idx]) {
+      timeEl.textContent = _formatDuration(Date.now() - _stepTimers[idx]);
+    }
+  }
 }
 
 function setGenBadge(text) {
@@ -42,10 +61,37 @@ function setGenEta(text) {
   const el = document.getElementById('gen-eta'); if (el) el.textContent = text;
 }
 
+function _updateFloatingBanner(stepText) {
+  const banner = document.getElementById('gen-floating-banner');
+  const textEl = document.getElementById('gen-banner-text');
+  const stepEl = document.getElementById('gen-banner-step');
+  if (!banner) return;
+  if (textEl) textEl.textContent = 'Creating your story...';
+  if (stepEl) {
+    const elapsed = _formatDuration(Date.now() - _pipelineStartTime);
+    stepEl.textContent = stepText + ' · ' + elapsed + ' elapsed';
+  }
+}
+
+function _showFloatingBanner() {
+  const banner = document.getElementById('gen-floating-banner');
+  if (banner) banner.style.display = 'block';
+}
+
+function _hideFloatingBanner() {
+  const banner = document.getElementById('gen-floating-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+export function returnToGenerating() {
+  if (_pipelineRunning) showScreen('generating');
+}
+
 function showGenError(msg) {
   const el = document.getElementById('gen-error');
   if (el) { el.textContent = msg; el.style.display = 'block'; }
   setGenEta('');
+  _hideFloatingBanner();
 }
 
 function showGeneratingCard() {
@@ -92,6 +138,7 @@ async function runPipelineV4(userPrompt) {
   initGenList(GEN_STEP_LABELS_V4);
   document.getElementById('gen-error').style.display = 'none';
   showGeneratingCard();
+  _showFloatingBanner();
 
   const sb = getSupabase();
   if (sb) { try { await sb.auth.getSession(); } catch (_e) {} }
@@ -211,21 +258,24 @@ async function runPipelineV4(userPrompt) {
     setGenItem(5, 'done');
 
     clearGeneratingCard();
+    _hideFloatingBanner();
     renderProfileMyStories();
     storiesCacheClear();
 
+    const totalTime = _formatDuration(Date.now() - _pipelineStartTime);
     const onGeneratingScreen = document.getElementById('s-generating')?.classList.contains('active');
     if (onGeneratingScreen) {
-      setGenEta('');
+      setGenEta('Done in ' + totalTime);
       setGenBadge('✓ ' + story.title + ' — tayyar hai!');
       setTimeout(() => { startStory(); }, 1500);
     } else {
-      showToast(story.title + ' tayyar hai! Tap to read.', () => { startStory(); });
+      showToast(story.title + ' tayyar hai! (' + totalTime + ') Tap to read.', () => { startStory(); });
     }
 
   } catch (err) {
     console.error('V4 Pipeline error:', err);
     clearGeneratingCard();
+    _hideFloatingBanner();
     renderProfileMyStories();
     const msg = err.message || 'unknown error';
     if (msg.includes('401') || msg.includes('JWT') || msg.includes('auth')) {

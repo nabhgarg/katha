@@ -112,7 +112,7 @@
 .gen-badge { background: rgba(255,176,32,0.15); color: #FFB020; border: 1px solid rgba(255,176,32,0.4); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 .gen-change { font-size: 12px; color: #A0A0B8; text-decoration: underline; cursor: pointer; background: transparent; border: none; font-family: inherit; }
 .gen-change:hover { color: #FFFFFF; }
-.check-list { list-style: none; width: 100%; max-width: 280px; margin-top: 12px; display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.check-list { list-style: none; width: 100%; max-width: 320px; margin-top: 12px; display: flex; flex-direction: column; gap: 10px; text-align: left; }
 .check-list li { font-size: 13px; color: #A0A0B8; display: flex; align-items: center; gap: 10px; font-weight: 500; }
 .check-list li .ck { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.18); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: transparent; flex-shrink: 0; }
 .check-list li.done { color: #FFFFFF; text-decoration: line-through; text-decoration-color: rgba(255,176,32,0.5); }

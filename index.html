@@ -209,6 +209,18 @@
     <!-- Toast -->
     <div id="katha-toast" role="alert" aria-live="polite"></div>
 
+    <!-- Floating generating banner — visible on any screen while pipeline runs -->
+    <div id="gen-floating-banner" onclick="returnToGenerating()" style="display:none;position:fixed;bottom:72px;left:12px;right:12px;z-index:400;background:rgba(255,176,32,0.12);border:1px solid rgba(255,176,32,0.3);border-radius:14px;padding:12px 16px;cursor:pointer;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:#FFB020;animation:pulse-dot 1.5s infinite;flex-shrink:0;"></div>
+        <div style="flex:1;min-width:0;">
+          <div id="gen-banner-text" style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Creating your story...</div>
+          <div id="gen-banner-step" style="font-size:11px;color:#A0A0B8;margin-top:2px;"></div>
+        </div>
+        <div style="font-size:11px;color:#FFB020;font-weight:600;flex-shrink:0;">View</div>
+      </div>
+    </div>
+
     <!-- PROFILE SETTINGS SHEET -->
     <div id="profile-settings-sheet" style="display:none;position:fixed;inset:0;z-index:500;">
       <div class="ov-backdrop" onclick="closeProfileSettings()"></div>

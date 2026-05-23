@@ -20,6 +20,10 @@ export function showScreen(id) {
     target.style.display = 'flex';
     target.classList.add('active');
   }
+  const banner = document.getElementById('gen-floating-banner');
+  if (banner && banner.style.display !== 'none') {
+    banner.style.visibility = id === 'generating' ? 'hidden' : 'visible';
+  }
 }
 
 let _onNav = null;
