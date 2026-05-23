@@ -1,0 +1,86 @@
+/* ---------- RESET / BASE ---------- */
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #FFFFFF;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- APP CONTAINER ---------- */
+#app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #08080F;
+}
+
+@media (min-width: 500px) {
+  body { background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 70%); }
+  #app {
+    width: 390px;
+    height: 844px;
+    border-radius: 40px;
+    box-shadow:
+      0 0 0 8px #0a0a14,
+      0 0 80px rgba(255, 176, 32, 0.18),
+      0 30px 80px rgba(0,0,0,0.6);
+  }
+}
+
+/* ---------- SCREENS ---------- */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+.screen.active {
+  display: flex;
+}
+
+/* ---------- KEYFRAMES ---------- */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes endFadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes kenBurns {
+  from { transform: scale(1) translateX(0); }
+  to { transform: scale(1.07) translateX(-1.5%); }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,176,32,0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(255,176,32,0); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes blink {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}

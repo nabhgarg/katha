@@ -6,40 +6,113 @@ A mobile-first interactive story app for Hinglish-speaking Tier 2/3 India. Playe
 
 ---
 
-## Running locally
+## Getting started
 
-No build step. Open `index.html` in Chrome or Safari:
+### Prerequisites
+
+- Node.js 18+
+- pnpm (`npm install -g pnpm`)
+- A Supabase project (for auth, database, storage)
+- OpenAI API key configured in a Supabase Edge Function (`openai-proxy`)
+
+### Running locally
 
 ```bash
-open index.html
-# or serve it to avoid audio restrictions:
-npx serve .
+# Install dependencies
+pnpm install
+
+# Create your env file
+cp .env.example .env.local
+# Edit .env.local with your Supabase URL, anon key, and redirect URL
+
+# Start dev server
+pnpm dev
 ```
 
-GitHub Pages auto-deploys within ~1 minute of each push to `main`.
+Opens at `http://localhost:5173/katha/`. Hot-reloads on save.
+
+### Building for production
+
+```bash
+pnpm build    # Output in dist/
+pnpm preview  # Preview the production build locally
+```
+
+### Deploying
+
+Push to `main` → GitHub Actions builds and deploys to GitHub Pages automatically. The workflow uses GitHub Secrets for API keys (see `.github/workflows/deploy.yml`).
 
 ---
 
-## What's in this repo
+## How the app works
 
-| File / Folder | What it is |
-|---|---|
-| `index.html` | **The entire app.** Single-file SPA — feed, player, choice screen, create, generating, profile, onboarding. All AI pipeline logic lives here. |
-| `content-engine-v4.md` | **Content engine spec (current).** Full documentation of the AI pipeline: stage prompts, schemas, branch logic, image pipeline, quality improvements vs v3. Start here if you're touching the generation code. |
-| `product-design-doc.md` | Product design spec v1.2 — design principles, visual tokens, 10 screen specs, API surface, analytics events. |
-| `project-recap.md` | Narrative overview of the full project — what Katha is, how the design evolved, every file explained. Good first read for someone new to the repo. |
-| `figma-design-prompts.md` | Per-screen Figma prompts for all 10 screens. |
-| `katha-idea-writeup.md` | Investor/pitch writeup — problem, insight, MVP scope, north-star metric. |
-| `content-engine-v3.md` | Previous engine spec (archived). v4 supersedes it but v3 docs are preserved for diff context. |
-| `bollywood-voice-references-v1.md` | Curated Hinglish dialogue examples used to calibrate the screenwriter prompt. |
-| `golden-scenes-v1.md` | 16 hand-written golden scenes (Romance × 6, Thriller × 6, Mythology × 4) injected as few-shot examples into every screenwriter call. |
-| `test-full-v4.mjs` | Node.js test script — calls the full v4 pipeline end-to-end and writes output to `test-output-*/`. Requires `OPENAI_API_KEY` env var. |
-| `images/` | AI-generated scene images for the seed mythology story "Kashi Ka Khazana". |
-| `audio/` | Background score for the mythology story. |
+### For players (guests or signed-in)
+
+1. **Explore** — Browse a TikTok-style feed of AI-generated stories, organized by genre (Mythology, Romance, Thriller). No sign-in required.
+2. **Tap to play** — Stories have 6 episodes with 3 scenes each, rendered as a visual novel with character dialogue, scene descriptions, and AI-generated images.
+3. **Make choices** — At the end of each episode, pick between two story-branching choices. Your pick shapes the next episode's plot, characters, and conflicts.
+4. **Six endings** — Depending on your choices, each story has 32 possible path combinations leading to different narrative outcomes.
+
+### For creators (sign-in required)
+
+1. **Create** — Type a 2-sentence story idea (or tap a suggestion). The AI generates a complete 6-episode branching story with cover art.
+2. **Generation takes ~5–7 min** — You can browse other stories while yours generates. Progress is shown in real time.
+3. **Auto-saved** — Stories are optimistically saved to local storage instantly, then synced to the cloud database in the background with all images uploaded to persistent storage.
+
+### Authentication
+
+- Email OTP (one-time password) via Supabase Auth — no passwords to remember.
+- Guest browsing fully supported: explore, play, and read stories without signing in.
+- Sign-in required only for: creating stories, saving play history, and profile/settings access.
+
+---
+
+## Project structure
+
+```
+katha/
+├── index.html              # Minimal HTML shell with all screens/sections
+├── src/
+│   ├── main.js             # App entry point, global setup, auth init
+│   ├── config.js            # Environment variable access
+│   ├── lib/
+│   │   ├── supabase.js      # Supabase client, auth (OTP), session management
+│   │   ├── router.js        # Screen navigation, auth gating
+│   │   ├── storage.js       # Local storage, DB sync, optimistic save, image upload
+│   │   ├── openai.js        # OpenAI proxy calls, Pollinations fallback (lazy-loaded)
+│   │   ├── pipeline.js      # AI story generation pipeline (lazy-loaded)
+│   │   ├── script-parser.js # Lightweight script → UI node parser
+│   │   ├── state.js         # Global app state (current story, episode, choices)
+│   │   └── toast.js         # Toast notifications
+│   ├── screens/
+│   │   ├── feed.js          # Feed + Explore grid (public story browsing)
+│   │   ├── player.js        # Story player (scenes, choices, branching)
+│   │   ├── create.js        # Story creation + generation pipeline runner
+│   │   ├── profile.js       # User profile, saved/played stories
+│   │   └── onboarding.js    # Sign-in (email OTP), name setup, sign-out
+│   ├── data/
+│   │   └── seed-story.js    # Built-in sample story
+│   └── styles/
+│       ├── base.css         # Typography, colors, layout primitives
+│       ├── screens.css      # Screen-specific styles
+│       └── components.css   # Buttons, cards, modals, toast
+├── schema.sql               # Supabase database schema + RLS policies
+├── vite.config.js            # Vite build configuration
+├── .env.example              # Template for environment variables
+├── .github/workflows/
+│   └── deploy.yml            # CI/CD: build + deploy to GitHub Pages
+└── docs/
+    ├── content-engine-v4.md  # Full AI pipeline spec (current)
+    ├── product-design-doc.md # Product design spec
+    ├── project-recap.md      # Project overview for newcomers
+    └── ...                   # Additional design docs
+```
 
 ---
 
 ## Architecture overview
+
+### AI generation pipeline (content engine v4)
 
 ```
 [User prompt]
@@ -67,7 +140,7 @@ Stage 1 — Architect (gpt-5.4)
               Episode image URL (Pollinations CDN, instant)
       │
       ▼
-All 6 episodes + 7 images uploaded to Supabase Storage → single atomic DB save
+Optimistic save to localStorage → background sync (image uploads + DB write)
 ```
 
 **Models used:**
@@ -80,25 +153,98 @@ All 6 episodes + 7 images uploaded to Supabase Storage → single atomic DB save
 | Cover + ep1 images | `gpt-image-1` | Best quality for the two visible-upfront images |
 | Episodes 2–6 images | Pollinations CDN | Free, instant URL, good enough for mid-story |
 
+### Backend (Supabase)
+
+- **Auth**: Email OTP via Supabase Auth. No passwords.
+- **Database**: PostgreSQL with a `stories` table. RLS policies allow public reads (for the feed) and owner-only writes.
+- **Storage**: `covers` bucket for uploaded story images.
+- **Edge Functions**: `openai-proxy` — server-side proxy to OpenAI so the API key never touches the browser.
+
+### Performance optimizations
+
+- **Code splitting**: The AI pipeline (~40 KB) and OpenAI module are lazy-loaded via dynamic `import()` — only fetched when a user actually creates a story.
+- **Optimistic saves**: Story saves to localStorage instantly; image uploads and DB writes happen in the background. Users see their story in the player immediately.
+- **Parallel image uploads**: Cover + all episode images upload concurrently via `Promise.all`.
+- **Session-level caching**: Public feed data is cached in `sessionStorage` with a 30-second TTL to avoid redundant network calls.
+
+---
+
+## Database setup
+
+### Fresh setup
+
+If setting up a new Supabase project, run `schema.sql` in **Supabase Dashboard → SQL Editor → New query → Paste → Run**. This creates the `stories` table and all RLS policies.
+
+### Migrating from the old schema
+
+If you already have a running instance with the old single-policy schema (`users_own_stories`), you need to run a migration. This is **safe** — no data is modified, only access policies change.
+
+Run this in **Supabase Dashboard → SQL Editor**:
+
+```sql
+-- Step 1: Drop the old blanket policy
+drop policy if exists "users_own_stories" on public.stories;
+
+-- Step 2: Add granular policies
+-- Public read: guests can browse the feed without signing in
+create policy "public_read_stories" on public.stories
+  for select to anon, authenticated using (true);
+
+-- Owner-only write policies
+create policy "users_insert_own" on public.stories
+  for insert to authenticated with check (auth.uid() = user_id);
+
+create policy "users_update_own" on public.stories
+  for update to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "users_delete_own" on public.stories
+  for delete to authenticated using (auth.uid() = user_id);
+```
+
+**What this changes:**
+- Before: only signed-in users could read stories, and only their own
+- After: anyone can **read** all stories (needed for the public feed/explore), but only owners can **write/update/delete** their own
+
+**Impact on your live GitHub Pages instance:**
+- Zero downtime — this is a Supabase-side change, not a code deploy
+- Existing stories and user accounts are untouched
+- The frontend code already handles both cases (it just silently fails to load the feed for guests under the old policy)
+- After running the migration, guest browsing on your live site will start working immediately
+
+### Schema overview
+
+- `stories` table: `id`, `user_id`, `story_data` (JSONB), `credit_map` (JSONB), `created_at`
+- RLS policies:
+  - **Public read**: Anyone (including guests) can read stories for the feed
+  - **Owner insert/update/delete**: Only authenticated users can modify their own stories
+- User accounts are managed by Supabase Auth (auto-created on first OTP verification)
+
+---
+
+## Environment variables
+
+| Variable | Description |
+|---|---|
+| `VITE_SUPABASE_URL` | Your Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase publishable anon key |
+| `VITE_REDIRECT_URL` | OAuth/OTP redirect (e.g., `https://nabhgarg.github.io/katha/`) |
+
+For production deployments via GitHub Actions, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as repository Secrets, and `VITE_REDIRECT_URL` as a repository Variable.
+
 ---
 
 ## Key design decisions
 
-**Single atomic save.** All 6 episodes generate before anything is written to the DB. No partial stories in the feed. Tradeoff: if generation fails at episode 5, the user sees an error and nothing is saved. Retry logic (3× per episode) mitigates this.
+**Guest-first experience.** The feed, explore grid, and story player all work without sign-in. Auth is only required for creating stories and accessing profile features. This maximizes engagement before asking for commitment.
 
-**Dual-branch generation.** From episode 2 onward, Branch A and Branch B generate in parallel. Each branch uses its own scene objectives, its own continuity sentence, and the player's specific choice label as a "BRANCH PATH" constraint. This ensures branch divergence is visible from Scene 1, not just at the choice point.
+**Optimistic save.** After generation, the story saves to localStorage immediately and the user can start playing within seconds. Heavy tasks (image uploads, DB write) happen in the background. If the background sync fails, the user gets a toast notification and the story is still available locally.
+
+**Dual-branch generation.** From episode 2 onward, Branch A and Branch B generate in parallel. Each branch uses its own scene objectives, continuity sentence, and choice label. This ensures branch divergence is visible from Scene 1, not just at the choice point.
 
 **Story state tracking.** After each episode, a compact JSON story state (relationships, mysteries, emotional state, character goals) is extracted and passed to the next episode's screenwriter. This prevents episode 4 from ignoring what happened in episode 2.
 
-**Upfront image upload.** Before DB save, all episode images (both gpt-image-1 base64 and Pollinations CDN URLs) are uploaded to Supabase Storage. The stored story always has persistent image URLs — no broken images if Pollinations CDN changes.
-
-**Genre-specific quality rules.** The Architect prompt enforces: cliffhangers must be physical/external (not internal reflection), story rules must be falsifiable, choice subtext must name a value conflict (not describe an action), secrets must be specific past events with named characters.
-
----
-
-## North-star metric
-
-**70% of users who start Episode 1 must finish Episode 2.** If below 70%, fix story quality before everything else. The content engine exists for this number.
+**Image persistence.** Before DB save, all episode images (both gpt-image-1 base64 and Pollinations CDN URLs) are uploaded to Supabase Storage. The stored story always has persistent image URLs — no broken images if Pollinations CDN changes.
 
 ---
 
@@ -114,6 +260,12 @@ See `content-engine-v4.md` for the full spec. Major versions:
 | v4 | 2026-05-21 | Dual-branch generation, upfront full generation, branch divergence fix, story state tracking, image persistence, tightened architect prompts |
 | v4.1 | 2026-05-22 | Screenwriter prompt interleaving fix, validator checks 8+9 (story rules + banned lines), ETA string updated, player UI hard split |
 | v4.2 | 2026-05-22 | Model upgrades: architect gpt-5.4 (was gpt-4o), screenwriter + validator gpt-5.4-mini (already in code, docs corrected) |
+
+---
+
+## North-star metric
+
+**70% of users who start Episode 1 must finish Episode 2.** If below 70%, fix story quality before everything else. The content engine exists for this number.
 
 ---
 
