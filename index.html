@@ -523,9 +523,12 @@
     background-size: cover;
     background-position: center;
     background-color: #1a1a2e;
+    background-image:
+      radial-gradient(ellipse at 50% 60%, rgba(255,176,32,0.18) 0%, transparent 65%),
+      linear-gradient(160deg, #1a1200 0%, #0d0d1a 100%);
   }
-  .choice-half .ch-bg.top-fx { filter: brightness(0.7) sepia(0.2); }
-  .choice-half .ch-bg.bot-fx { filter: brightness(0.5) hue-rotate(200deg); }
+  .choice-half .ch-bg.top-fx { filter: brightness(0.75) sepia(0.25); }
+  .choice-half .ch-bg.bot-fx { filter: brightness(0.6) hue-rotate(190deg) saturate(1.2); }
   .choice-half .ch-overlay {
     position: absolute;
     inset: 0;
