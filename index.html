@@ -2198,22 +2198,23 @@ async function oaiChat(messages, model = 'gpt-5.4-mini', extra = {}) {
   const token = await _proxyToken();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 90000);
+  let res;
   try {
-    const res = await fetch(_PROXY, {
+    res = await fetch(_PROXY, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ type: 'chat', model, messages, ...extra }),
       signal: ctrl.signal
     });
-    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || 'API error ' + res.status); }
-    const d = await res.json();
-    if (!d.choices?.[0]?.message?.content) throw new Error('Empty response from model');
-    return _safeJsonParse(d.choices[0].message.content);
   } catch(e) {
-    throw new Error(e.name === 'AbortError' ? 'Request timed out — please try again' : e.message);
-  } finally {
     clearTimeout(timer);
+    throw new Error(e.name === 'AbortError' ? 'Request timed out — please try again' : e.message);
   }
+  clearTimeout(timer);
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || 'API error ' + res.status); }
+  const d = await res.json();
+  if (!d.choices?.[0]?.message?.content) throw new Error('Empty response from model');
+  return _safeJsonParse(d.choices[0].message.content);
 }
 
 function _pollinationsUrl(prompt) {
@@ -2238,20 +2239,21 @@ async function oaiImage(prompt) {
       try {
         const imgCtrl = new AbortController();
         const imgTimer = setTimeout(() => imgCtrl.abort(), 90000);
+        let imgRes;
         try {
-          const imgRes = await fetch(_PROXY, {
+          imgRes = await fetch(_PROXY, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             body: JSON.stringify({ type: 'image', model, prompt, size: '1024x1024' }),
             signal: imgCtrl.signal
           });
-          if (imgRes.ok) {
-            const d = await imgRes.json();
-            const b64 = d.data?.[0]?.b64_json;
-            if (b64) return 'data:image/png;base64,' + b64;
-            if (d.data?.[0]?.url) return d.data[0].url;
-          }
         } finally { clearTimeout(imgTimer); }
+        if (imgRes.ok) {
+          const d = await imgRes.json();
+          const b64 = d.data?.[0]?.b64_json;
+          if (b64) return 'data:image/png;base64,' + b64;
+          if (d.data?.[0]?.url) return d.data[0].url;
+        }
       } catch(e) { /* try next model or fall back to Pollinations */ }
     }
   }
@@ -3381,8 +3383,7 @@ async function _uploadCoverToStorage(dataUrl) {
     const blob = new Blob([bytes], { type: mime });
     const ext = mime === 'image/jpeg' ? 'jpg' : 'png';
     const storagePath = `${_currentUser.id}/${Date.now()}.${ext}`;
-    const uploadPromise = _supabase.storage.from('covers').upload(storagePath, blob, { contentType: mime, upsert: false });
-    const { error } = await Promise.race([uploadPromise, new Promise((_, rej) => setTimeout(() => rej(new Error('upload timed out')), 30000))]);
+    const { error } = await _supabase.storage.from('covers').upload(storagePath, blob, { contentType: mime, upsert: false });
     if (error) { console.warn('Cover upload error:', error.message); return null; }
     const { data } = _supabase.storage.from('covers').getPublicUrl(storagePath);
     return data?.publicUrl || null;
@@ -3406,18 +3407,17 @@ async function _uploadImageToStorage(imageSource) {
     } else if (imageSource.startsWith('http')) {
       const imgAbort = new AbortController();
       const imgTimeout = setTimeout(() => imgAbort.abort(), 15000);
-      try {
-        const res = await fetch(imageSource, { signal: imgAbort.signal });
-        if (!res.ok) throw new Error('fetch failed ' + res.status);
-        blob = await res.blob();
-        ext = 'png';
-      } finally { clearTimeout(imgTimeout); }
+      let res;
+      try { res = await fetch(imageSource, { signal: imgAbort.signal }); }
+      finally { clearTimeout(imgTimeout); }
+      if (!res.ok) throw new Error('fetch failed ' + res.status);
+      blob = await res.blob();
+      ext = 'png';
     } else {
       return imageSource; // already a storage URL or empty — pass through
     }
     const storagePath = `${_currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const uploadPromise = _supabase.storage.from('covers').upload(storagePath, blob, { contentType: blob.type || 'image/png', upsert: false });
-    const { error } = await Promise.race([uploadPromise, new Promise((_, rej) => setTimeout(() => rej(new Error('upload timed out')), 30000))]);
+    const { error } = await _supabase.storage.from('covers').upload(storagePath, blob, { contentType: blob.type || 'image/png', upsert: false });
     if (error) { console.error('Episode image upload error (story will use CDN URL):', error.message); return null; }
     const { data } = _supabase.storage.from('covers').getPublicUrl(storagePath);
     return data?.publicUrl || null;
