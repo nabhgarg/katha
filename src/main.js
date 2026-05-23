@@ -10,7 +10,7 @@ import { syncFromDb } from './lib/storage.js';
 import { startStory, advanceScene, goBackScene, goBackFromChoice, makeChoice, shareEnding } from './screens/player.js';
 import { renderFeedGenerated, loadPublicFeed, loadExploreGrid, playSavedStory, playPublicStory } from './screens/feed.js';
 import { renderProfileMyStories, renderProfilePlayed, renderProfileHead, openProfileSettings, closeProfileSettings, updateAuthUI, updateDbStatusUI } from './screens/profile.js';
-import { startGenerating, updateCharCount, useIdea, returnToGenerating } from './screens/create.js';
+import { startGenerating, updateCharCount, useIdea } from './screens/create.js';
 import { submitOnboard, submitOtp, submitName, handleSignOut, resetOnboardScreen } from './screens/onboarding.js';
 
 // Expose functions that HTML onclick handlers need
@@ -35,7 +35,6 @@ Object.assign(window, {
   playPublicStory,
   openLoginModal: () => navTo('onboard'),
   closeLoginModal: () => {},
-  returnToGenerating,
   openSave: () => document.getElementById('overlay-save')?.classList.add('active'),
   closeSave: () => document.getElementById('overlay-save')?.classList.remove('active'),
 });

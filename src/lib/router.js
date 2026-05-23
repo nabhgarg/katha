@@ -20,10 +20,6 @@ export function showScreen(id) {
     target.style.display = 'flex';
     target.classList.add('active');
   }
-  const banner = document.getElementById('gen-floating-banner');
-  if (banner && banner.style.display !== 'none') {
-    banner.style.visibility = id === 'generating' ? 'hidden' : 'visible';
-  }
 }
 
 let _onNav = null;
@@ -34,7 +30,13 @@ export function navTo(tab) {
     navTo('onboard');
     return;
   }
-  showScreen(tab);
+  let screenId = tab;
+  if (tab === 'create') {
+    const genScreen = document.getElementById('s-generating');
+    const isGenerating = document.querySelector('.bnav .nav-item[data-tab="create"].generating');
+    if (isGenerating && genScreen) screenId = 'generating';
+  }
+  showScreen(screenId);
   document.querySelectorAll('.bnav .nav-item').forEach(b => {
     if (b.dataset.tab === tab) b.classList.add('active');
     else b.classList.remove('active');

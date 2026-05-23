@@ -2,6 +2,7 @@ import { signInWithOtp, verifyOtp, updateDisplayName, getDisplayName, doSignOut 
 import { navTo } from '../lib/router.js';
 import { storiesCacheClear } from '../lib/storage.js';
 import { updateAuthUI, closeProfileSettings } from './profile.js';
+import { isPipelineRunning } from './create.js';
 
 let _pendingEmail = '';
 
@@ -93,6 +94,10 @@ export async function submitName() {
 }
 
 export async function handleSignOut() {
+  if (isPipelineRunning()) {
+    const ok = confirm('A story is being generated. Signing out will lose all progress. Continue?');
+    if (!ok) return;
+  }
   closeProfileSettings();
   await sbSignOut();
   storiesCacheClear();

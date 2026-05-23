@@ -11,6 +11,14 @@ let _genPlaceholderActive = false;
 let _stepTimers = [];
 let _pipelineStartTime = 0;
 
+export function isPipelineRunning() { return _pipelineRunning; }
+
+function _onBeforeUnload(e) {
+  e.preventDefault();
+  e.returnValue = '';
+}
+
+
 const GEN_STEP_LABELS_V4 = [
   'Designing your story world',
   'Writing Episode 1',
@@ -43,7 +51,6 @@ function setGenItem(idx, state) {
     li.classList.add('active');
     if (ck) ck.textContent = '·';
     _stepTimers[idx] = Date.now();
-    _updateFloatingBanner(GEN_STEP_LABELS_V4[idx] || 'Working...');
   } else if (state === 'done') {
     li.classList.remove('active'); li.classList.add('done');
     if (ck) ck.textContent = '✓';
@@ -61,37 +68,17 @@ function setGenEta(text) {
   const el = document.getElementById('gen-eta'); if (el) el.textContent = text;
 }
 
-function _updateFloatingBanner(stepText) {
-  const banner = document.getElementById('gen-floating-banner');
-  const textEl = document.getElementById('gen-banner-text');
-  const stepEl = document.getElementById('gen-banner-step');
-  if (!banner) return;
-  if (textEl) textEl.textContent = 'Creating your story...';
-  if (stepEl) {
-    const elapsed = _formatDuration(Date.now() - _pipelineStartTime);
-    stepEl.textContent = stepText + ' · ' + elapsed + ' elapsed';
-  }
-}
-
-function _showFloatingBanner() {
-  const banner = document.getElementById('gen-floating-banner');
-  if (banner) banner.style.display = 'block';
-}
-
-function _hideFloatingBanner() {
-  const banner = document.getElementById('gen-floating-banner');
-  if (banner) banner.style.display = 'none';
-}
-
-export function returnToGenerating() {
-  if (_pipelineRunning) showScreen('generating');
+function _setCreateTabIndicator(active) {
+  document.querySelectorAll('.bnav .nav-item[data-tab="create"]').forEach(btn => {
+    btn.classList.toggle('generating', active);
+  });
 }
 
 function showGenError(msg) {
   const el = document.getElementById('gen-error');
   if (el) { el.textContent = msg; el.style.display = 'block'; }
   setGenEta('');
-  _hideFloatingBanner();
+  _setCreateTabIndicator(false);
 }
 
 function showGeneratingCard() {
@@ -138,7 +125,7 @@ async function runPipelineV4(userPrompt) {
   initGenList(GEN_STEP_LABELS_V4);
   document.getElementById('gen-error').style.display = 'none';
   showGeneratingCard();
-  _showFloatingBanner();
+  _setCreateTabIndicator(true);
 
   const sb = getSupabase();
   if (sb) { try { await sb.auth.getSession(); } catch (_e) {} }
@@ -258,7 +245,7 @@ async function runPipelineV4(userPrompt) {
     setGenItem(5, 'done');
 
     clearGeneratingCard();
-    _hideFloatingBanner();
+    _setCreateTabIndicator(false);
     renderProfileMyStories();
     storiesCacheClear();
 
@@ -275,7 +262,7 @@ async function runPipelineV4(userPrompt) {
   } catch (err) {
     console.error('V4 Pipeline error:', err);
     clearGeneratingCard();
-    _hideFloatingBanner();
+    _setCreateTabIndicator(false);
     renderProfileMyStories();
     const msg = err.message || 'unknown error';
     if (msg.includes('401') || msg.includes('JWT') || msg.includes('auth')) {
@@ -295,6 +282,10 @@ export function startGenerating() {
   const prompt = (document.getElementById('story-prompt')?.value || '').trim();
   if (!prompt) { alert('Please describe your story idea first!'); return; }
   _pipelineRunning = true;
+  window.addEventListener('beforeunload', _onBeforeUnload);
   showScreen('generating');
-  runPipelineV4(prompt).finally(() => { _pipelineRunning = false; });
+  runPipelineV4(prompt).finally(() => {
+    _pipelineRunning = false;
+    window.removeEventListener('beforeunload', _onBeforeUnload);
+  });
 }

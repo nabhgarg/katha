@@ -160,6 +160,12 @@
         <div class="gen-error" id="gen-error" style="display:none;color:#ff6b6b;text-align:center;padding:12px 24px;font-size:13px;line-height:1.5;"></div>
         <button class="btn-ghost gen-browse" onclick="navTo('feed')">Browse stories meanwhile</button>
       </div>
+      <nav class="bnav">
+        <button class="nav-item" data-tab="feed" onclick="navTo('feed')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg></span><span>Feed</span></button>
+        <button class="nav-item" data-tab="explore" onclick="navTo('explore')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg></span><span>Explore</span></button>
+        <button class="nav-item active" data-tab="create" onclick="navTo('create')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span><span>Create</span></button>
+        <button class="nav-item" data-tab="profile" onclick="navTo('profile')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span><span>You</span></button>
+      </nav>
     </section>
 
     <!-- PROFILE -->
@@ -208,18 +214,6 @@
 
     <!-- Toast -->
     <div id="katha-toast" role="alert" aria-live="polite"></div>
-
-    <!-- Floating generating banner — visible on any screen while pipeline runs -->
-    <div id="gen-floating-banner" onclick="returnToGenerating()" style="display:none;position:fixed;bottom:72px;left:12px;right:12px;z-index:400;background:rgba(255,176,32,0.12);border:1px solid rgba(255,176,32,0.3);border-radius:14px;padding:12px 16px;cursor:pointer;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div style="width:10px;height:10px;border-radius:50%;background:#FFB020;animation:pulse-dot 1.5s infinite;flex-shrink:0;"></div>
-        <div style="flex:1;min-width:0;">
-          <div id="gen-banner-text" style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Creating your story...</div>
-          <div id="gen-banner-step" style="font-size:11px;color:#A0A0B8;margin-top:2px;"></div>
-        </div>
-        <div style="font-size:11px;color:#FFB020;font-weight:600;flex-shrink:0;">View</div>
-      </div>
-    </div>
 
     <!-- PROFILE SETTINGS SHEET -->
     <div id="profile-settings-sheet" style="display:none;position:fixed;inset:0;z-index:500;">
