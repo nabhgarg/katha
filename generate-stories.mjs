@@ -1,37 +1,60 @@
-// generate-stories.mjs — Full Katha v6 pipeline with Excel output
-// Runs two premises through: Architect → Screenwriter → Validator → State Extractor
-// Outputs: stories-<timestamp>.xlsx with one sheet per story
+// generate-stories.mjs — Katha v5 pipeline: Architect → Screenwriter → Validator
+// Direct prose from scene objectives. Story state tracks continuity between episodes.
+// Both branches converge on the same target cliffhanger per episode.
 
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { createRequire } from 'module';
 
-const require = createRequire(import.meta.url);
-const __dir   = dirname(fileURLToPath(import.meta.url));
+const __dir = dirname(fileURLToPath(import.meta.url));
 
 const OPENAI_KEY = readFileSync(join(__dir, '.env'), 'utf8')
   .match(/OPENAI_API_KEY\s*=\s*"?([^"\n]+)"?/)?.[1]?.trim();
 if (!OPENAI_KEY) { console.error('No OPENAI_API_KEY in .env'); process.exit(1); }
 
 const PREMISES = [
-  'Ek famous detective ko ek aisi crime scene par bulaya gaya jahan victims ki body par wahi nishaan hain jo uski apni diary mein bane hain.',
-  'Ek corporate office mein boss aur employee jo din bhar ek dusre se ladte hain, par raat ko wahi dono ek anonymous dating app par best friends bane baithe hain.',
+  // ROMANCE
+  'Mumbai mein do rival stand-up comedians ko ek romantic-comedy web-series co-write karni padti hai — jabki dono yeh chhupa rahe hain ki teen saal pehle unki shaadi hone wali thi aur woh rishta behad buri tarah toot gaya tha.',
+  'Bengaluru ka ek cynical food inspector aur ek cloud-kitchen chef roz compliance audits pe ladte hain — unhe nahi pata ki woh dono raat ko ek anonymous poetry app par ek doosre ko chup-chaap dilasa dete hain.',
+  // HORROR
+  'Ek Delhi tech-bro apne luxury apartment ke liye ek advanced smart-home AI laata hai — phir dheere dheere usse samajh aata hai ki AI uski marhi hui dadi ki awaaz aur andaaz copy karne laga hai.',
+  'Kolkata ke ek purane single-screen cinema ka midnight-shift projectionist dekhta hai ki ek vintage film ke background extras dheere dheere apna sar ghumakar seedha uski taraf dekhne lage hain.',
+  // MYTHOLOGY REIMAGINED
+  'Ashwatthama — dard bhari amarta ka shraap liye hua — aaj-kal modern Varanasi mein ek thaka-haara late-night trauma surgeon hai, jab achanak ek mysterious patient ke zaKhm mein woh ancient celestial weapon ka nishaan pehchaanta hai.',
+  'Delhi ke ek cutthroat corporate empire ki ladaai mein ek brilliant lekin unacknowledged executive ko pata chalta hai ki uska katta rival CEO actually wahi maa hai jisne use paida hote hi chhod diya tha.',
+  // FAMILY DRAMA
+  'South Delhi ki ek ameer matriarch apni poori jaydaad apne estranged middle-class driver ke naam kar jaati hai — ab uske teen ultra-privileged corporate bachon ko settlement ke liye uske ghar mein rehna padega.',
+  'Hyderabad ke ek elite family dinner mein beti galti se apne baap ka phone screen cast kar deti hai — aur poori family dekhti hai ki ussi sheher mein ek bilkul alag doosra parivaar bhi hai.',
 ];
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 async function gptRaw(messages, model, maxTokens) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
-    body: JSON.stringify({ model, max_completion_tokens: maxTokens, messages }),
-  });
-  if (!res.ok) { const t = await res.text(); throw new Error(`HTTP ${res.status}: ${t.slice(0, 300)}`); }
-  const d = await res.json();
-  const raw = d.choices?.[0]?.message?.content?.trim() || '';
-  if (!raw) throw new Error('Empty response from model');
-  return raw;
+  const maxRetries = 4;
+  let lastErr = null;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
+        body: JSON.stringify({ model, max_completion_tokens: maxTokens, messages }),
+      });
+      if (!res.ok) { const t = await res.text(); throw new Error(`HTTP ${res.status}: ${t.slice(0, 300)}`); }
+      const d = await res.json();
+      const raw = d.choices?.[0]?.message?.content?.trim() || '';
+      if (!raw) throw new Error('Empty response from model');
+      return raw;
+    } catch (e) {
+      lastErr = e;
+      const transient = /HTTP (429|5\d\d)|fetch failed|terminat|reset|ECONNRESET|network|socket|timeout/i.test(e.message);
+      if (transient && attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 800 * 2 ** (attempt - 1)));
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastErr;
 }
 
 async function gptJSON(messages, model, maxTokens) {
@@ -41,609 +64,554 @@ async function gptJSON(messages, model, maxTokens) {
   return { parsed, raw };
 }
 
-// ─── Architect ────────────────────────────────────────────────────────────────
+// ─── Stage 1: Architect ───────────────────────────────────────────────────────
 
 const ARCHITECT_SYSTEM = `You are a story architect for Katha, an Indian interactive fiction app set in modern Indian cities.
 
-Given a one-sentence premise, build a complete story blueprint JSON.
+Given a one-sentence premise, build a complete story blueprint JSON. This is the single source of truth — the screenwriter cannot invent anything not declared here.
 
 STORY SHAPE:
 Episode 1 — single branch, 3 scenes
-Episode 2 — single branch, 3 scenes + ONE choice at the end
-Episodes 3-6 — two branches (A and B), 3 scenes each
-Total: 18 scenes. Player reads 12 — episodes 1 and 2 (shared), then one full branch based on their choice at the end of Episode 2.
+Episodes 2–6 — two branches (A and B), 3 scenes each, both branches end on the SAME target_cliffhanger
+Total: 33 scenes generated. Player reads 18 — episode 1 (3 scenes), then one full branch of episodes 2–6 (15 scenes).
 
 RULES:
 
-story_rules: 3 concrete VISIBLE constraints the audience can observe. Not personality traits.
-GOOD: "Jab bhi Arjun jhooth bolta hai, uski left hand kaanpti hai"
-BAD: "Arjun bahut intelligent hai"
+secret: must name what happened, who was involved, what was concealed.
+WRONG: "carries guilt." RIGHT: "Seven years ago Ravi hit a cyclist, filed a false police report blaming the cyclist, family never knew."
 
-choice (end of Episode 2): CONCRETE ACTION dilemma — where to go, who to help, what to do right now.
-Never abstract or moral.
-GOOD: "Vikram ke saath police station chalo ya akele crime scene wapas jao"
-BAD: "Sachhai ka saath do ya jhooth chhupaao"
+target_cliffhanger: a physical impossibility or external threat made visible. NOT internal reflection.
+WRONG: "Matlab, kya yeh sab meri wajeh se tha?" RIGHT: "Woh aadmi bina chehre ke seedha darwaze ke doosri taraf khada tha."
 
-Branch divergence: Episode 3A and 3B MUST open in physically different situations caused by the choice.
+CRITICAL: For episodes 2–6, BOTH branches (A and B) must end on the EXACT SAME target_cliffhanger sentence. The divergence is in HOW they get there — not where they end.
 
-Characters: 3 supporting characters. Each role describes what they DO to the protagonist's situation — not a label.
-BAD role: "The mentor"
-GOOD role: "Protagonist ko woh sach batati hai jo woh nahi sunna chahta, aur har baar sahi nikalta hai"
+choice_a / choice_b labels: concrete actions (what the player does), not moral statements.
+WRONG: "Sacrifice your honour." RIGHT: "Chup raho aur nikalo."
 
-━━━ THEMATIC UNITY LAW (CRITICAL) ━━━
-The "secret" field must serve as the deep, emotional backstory of the current genre. It must NEVER force a mid-story genre migration.
-- For ROMANCE/DRAMA: The secret must be intimate and interpersonal (e.g., past betrayal, shared history, hidden guilt). It must NOT involve corporate conspiracies, rogue data experiments, or physical danger.
-- For THRILLER: The secret must be directly connected to the mechanics of the mystery, forcing a direct psychological tie between the protagonist and the antagonist.
+scene_objectives_a[0] / scene_objectives_b[0]: must describe the specific physical situation the player enters as direct consequence of choosing that branch. Causally tied to the label.
 
-Cliffhangers for Episodes 3-6: Each branch has its OWN cliffhanger.
-Episodes 1-2: cliffhanger_objective (single field)
-Episodes 3-6: cliffhanger_objective_a AND cliffhanger_objective_b (two separate fields)
-Cliffhanger format: write a 1-2 sentence narrative goal describing WHAT should happen in the final beat — not an exact line. The Screenwriter will find the best words for it. Example: "Meera shocks Kabir by revealing that a page from his personal diary was found at the murder scene." Concrete, physical, under 40 words.
+voice_card: 3 lines of Hinglish in different emotional registers — casual, uncertain, under pressure. Specific to this character's rhythm, vocabulary, how they hold back or push.
 
-RETURN ONLY VALID JSON. No commentary, no markdown fences.
+CHARACTER NAMES: avoid overused Bollywood names — Rahul, Priya, Meera, Arjun, Kabir, Rhea, Rohan, Naina, Dev, Vikram, Riya, Ananya, Ishaan. Use authentic but less common Indian names.
+
+FIDELITY: every specific element the user mentioned must appear exactly as given. Never generalize.
+
+OUTPUT: valid JSON only, no markdown fences.
 
 {
-  "genre": "THRILLER | ROMANCE | MYTHOLOGY | DRAMA",
-  "title": "Story title in Hindi or Hinglish",
-  "city": "Indian city name",
-  "logline": "One compelling sentence",
-  "secret": "The hidden backstory driving the whole plot — never named directly in scenes",
-  "story_rules": ["rule 1", "rule 2", "rule 3"],
+  "genre": "ROMANCE|THRILLER|MYTHOLOGY",
+  "title": "2-4 word Hinglish title",
+  "city": "Indian city",
+  "secret": "specific past event naming what happened, who, what was concealed",
+  "logline": "protagonist, disruption, stakes",
   "protagonist": {
-    "name": "Indian first name",
-    "nature": "Two words max",
-    "story_goal": "What they must achieve by Episode 6",
-    "motivation": "Why this is personally devastating for them",
-    "past": "One past event that made them who they are",
-    "voice_card": [
-      "Casual: example dialogue line",
-      "Uncertain: example dialogue line when confused or scared",
-      "Under pressure: example dialogue line when cornered"
-    ]
+    "name": "first name only",
+    "story_goal": "the concrete thing they want by episode 6",
+    "motivation": "why this matters to them personally",
+    "nature": "1-2 word disposition",
+    "past": "prior event that shapes reactions — not the secret",
+    "voice_card": ["casual register Hinglish line", "uncertain register Hinglish line", "under pressure register Hinglish line"]
   },
   "characters": [
-    { "name": "Name", "role": "What this character does to the protagonist's situation when they appear" },
-    { "name": "Name", "role": "..." },
-    { "name": "Name", "role": "..." }
+    {"name": "first name only", "role": "relationship + story function in one sentence"}
   ],
   "episodes": [
     {
       "episode_number": 1,
-      "title": "Episode title",
-      "scene_objectives": ["scene 1 objective", "scene 2 objective", "scene 3 objective"],
-      "cliffhanger_objective": "1-2 sentence narrative goal for the final beat of Scene 3"
+      "scene_objectives": ["Scene 1 objective", "Scene 2 objective", "Scene 3 objective"],
+      "target_cliffhanger": "exact Hinglish sentence",
+      "choice_question": "Hinglish dilemma question",
+      "choice_a": {"label": "3-5 word action label"},
+      "choice_b": {"label": "3-5 word action label"}
     },
     {
       "episode_number": 2,
-      "title": "Episode title",
-      "scene_objectives": ["scene 1 objective", "scene 2 objective", "scene 3 objective"],
-      "cliffhanger_objective": "1-2 sentence narrative goal for the final beat of Scene 3",
-      "choice_question": "The exact question shown to player — concrete action dilemma",
-      "choice_a": { "label": "Option A text" },
-      "choice_b": { "label": "Option B text" }
-    },
-    {
-      "episode_number": 3,
-      "title": "Episode title",
-      "scene_objectives_a": ["scene 1", "scene 2", "scene 3"],
-      "scene_objectives_b": ["scene 1", "scene 2", "scene 3"],
-      "cliffhanger_objective_a": "1-2 sentence narrative goal for Branch A final beat",
-      "cliffhanger_objective_b": "1-2 sentence narrative goal for Branch B final beat"
-    },
-    {
-      "episode_number": 4,
-      "title": "Episode title",
-      "scene_objectives_a": ["scene 1", "scene 2", "scene 3"],
-      "scene_objectives_b": ["scene 1", "scene 2", "scene 3"],
-      "cliffhanger_objective_a": "...",
-      "cliffhanger_objective_b": "..."
-    },
-    {
-      "episode_number": 5,
-      "title": "Episode title",
-      "scene_objectives_a": ["scene 1", "scene 2", "scene 3"],
-      "scene_objectives_b": ["scene 1", "scene 2", "scene 3"],
-      "cliffhanger_objective_a": "...",
-      "cliffhanger_objective_b": "..."
-    },
-    {
-      "episode_number": 6,
-      "title": "Episode title",
-      "scene_objectives_a": ["scene 1", "scene 2", "scene 3"],
-      "scene_objectives_b": ["scene 1", "scene 2", "scene 3"],
-      "cliffhanger_objective_a": "...",
-      "cliffhanger_objective_b": "..."
+      "scene_objectives_a": ["direct physical consequence of choice_a", "...", "..."],
+      "scene_objectives_b": ["direct physical consequence of choice_b", "...", "..."],
+      "target_cliffhanger": "SAME exact Hinglish sentence for both branches",
+      "choice_question": "Hinglish dilemma question",
+      "choice_a": {"label": "3-5 word action label"},
+      "choice_b": {"label": "3-5 word action label"}
     }
   ]
-}`;
+}
+
+Episodes 3–5: same structure as episode 2 (scene_objectives_a, scene_objectives_b, target_cliffhanger, choice fields).
+Episode 6: same but no choice_question, choice_a, choice_b — story ends here.`;
 
 async function runArchitect(premise) {
-  const systemMsg = { role: 'system', content: ARCHITECT_SYSTEM };
-  const userMsg   = { role: 'user',   content: `Premise: "${premise}"\n\nBuild the complete story blueprint.` };
-  const { parsed, raw } = await gptJSON([systemMsg, userMsg], 'gpt-5.4', 8000);
-  return { blueprint: parsed, systemPrompt: ARCHITECT_SYSTEM, userMessage: userMsg.content, rawOutput: raw };
+  const messages = [
+    { role: 'system', content: ARCHITECT_SYSTEM },
+    { role: 'user',   content: `Premise: ${premise}` },
+  ];
+  const { parsed: blueprint, raw: rawOutput } = await gptJSON(messages, 'gpt-5.4', 8000);
+  return { blueprint, rawOutput, systemPrompt: ARCHITECT_SYSTEM, userMessage: `Premise: ${premise}` };
+}
+
+// ─── Stage 2: Screenwriter ────────────────────────────────────────────────────
+
+function writerSystem(bp) {
+  const vc = bp.protagonist.voice_card || [];
+  return `You write one episode of three scenes for Katha, an Indian interactive fiction app.
+
+OUTPUT FORMAT (CRITICAL):
+- Each scene is a single string in the "script" field.
+- Action/setting goes inside *asterisks*. Dialogue goes outside asterisks, on its own line.
+- EVERY dialogue line MUST start with the speaker's name in ALL-CAPS followed by a colon: "RIYA: Yaar sun..." — no exceptions. No quotation marks. Never nest asterisks.
+- SCENE STRUCTURE: Open with an *action block*, then let the scene breathe. Dialogue can happen even when a character is alone — calling out, muttering, speaking into a phone. But never use dialogue to announce a discovery or state an emotion out loud. Never have the same character speak twice in a row.
+- SCENE LENGTH: Every scene (action blocks + dialogue combined) must be under 140 words total. Count before writing. If it exceeds 140 words, cut dialogue lines first, then trim action blocks.
+- DIALOGUE CAP: Maximum 5 dialogue lines per scene. No exceptions. Every extra dialogue line must become an action beat instead.
+
+NARRATOR LANGUAGE (CRITICAL — applies to EVERY *action beat*, not just the opening):
+- Every single *asterisk block* anywhere in the scene is Hindi-dominant Hinglish. No exceptions.
+- English enters ONLY where an urban Indian person would naturally use it — "exit", "meeting", "phone", "deadline". Not as narration style.
+- NO literary English constructions: no "she felt a chill", no "the atmosphere was tense", no "he couldn't help but notice".
+- WRONG: *She felt nervous as she entered the crowded room.*
+- RIGHT: *Haath kaamp raha tha. Andar se awaaz aa rahi thi — bahut log the, bahut shor.*
+
+LANGUAGE:
+- Roman-script Hinglish — Hindi-English code-switching the way urban Indian 18-30 year olds actually speak.
+- Code-switch AT the emotionally loaded word, not at random.
+- Use the simplest word that does the job. Never stack two adjectives onto one noun. If a description needs two modifiers, rewrite as an action beat.
+- Concrete object similes over adjective declarations: "like a glass placed too close to a table edge" > "scared."
+- Repetition with one altered element does emotional work.
+- Shortest sentence in a scene is the heaviest. Land scenes on short final sentences.
+- One Sanskrit or Urdu loanword per scene maximum.
+- Direct address (beta, yaar, sir, bhaiya) is load-bearing texture.
+
+CRAFT:
+- Scene 1 of every episode must open with a hook — a line that creates an unanswered question within the first 10 words.
+- Open all scenes mid-action. No backstory or exposition.
+- Show emotion through action, never through statement.
+- Scene 3 MUST end with the target_cliffhanger word for word, placed INSIDE asterisks as a narrator action line. Must NOT appear as dialogue.
+
+STORY CONTEXT:
+Genre: ${bp.genre} | City: ${bp.city}
+Secret (drives subtext — never name it directly): ${bp.secret}
+Protagonist: ${bp.protagonist.name}
+Nature: ${bp.protagonist.nature}
+Goal: ${bp.protagonist.story_goal}
+Why it matters: ${bp.protagonist.motivation}
+Past event (surface in subtext, never explain): ${bp.protagonist.past}
+Characters: ${(bp.characters || []).map(c => `${c.name} (${c.role})`).join(', ')}
+
+PROTAGONIST VOICE CARD:
+1. ${vc[0] || ''}
+2. ${vc[1] || ''}
+3. ${vc[2] || ''}
+
+ANTI-PATTERN (do NOT write like this):
+Rahul was feeling very nervous. The room felt cold and tense. He said: "Priya, I am worried about this situation." Priya looked at him with concern in her eyes. She said: "I understand your feelings." There was a lot of tension between them.`;
+}
+
+function writerUserMsg({ epNumber, title, objectives, cliffhanger, branch, choiceLabel, storyState, bannedLines, prevLastLine }) {
+  const branchBlock = branch
+    ? `\nBranch: ${branch} — player chose "${choiceLabel}"`
+    : '';
+
+  const stateBlock = storyState
+    ? `\nSTORY STATE (from previous episode):\n${JSON.stringify(storyState, null, 2)}`
+    : '';
+
+  const prevBlock = prevLastLine
+    ? `\nPREVIOUS EPISODE LAST SENTENCE (for continuity): ${prevLastLine}`
+    : '';
+
+  const bannedBlock = bannedLines?.length
+    ? `\nBANNED LINES (phrases from prior episodes — do NOT reuse):\n${bannedLines.map(l => `- ${l}`).join('\n')}`
+    : '';
+
+  return `Write Episode ${epNumber} of "${title}".${branchBlock}
+
+Scene objectives:
+1. ${objectives[0]}
+2. ${objectives[1]}
+3. ${objectives[2]}
+
+CLIFFHANGER REQUIREMENT: Scene 3 must end with this sentence copied word for word, wrapped in *asterisks* as a narrator line — do not paraphrase, do not translate, do not alter a single word, do not place it as dialogue outside asterisks:
+*${cliffhanger}*
+${stateBlock}${prevBlock}${bannedBlock}
+
+HARD LIMITS — check before outputting:
+- Every scene: under 140 total words
+- Every scene: max 5 dialogue lines
+
+Output:
+{
+  "scenes": [
+    {"scene_number": 1, "script": "..."},
+    {"scene_number": 2, "script": "..."},
+    {"scene_number": 3, "script": "... ends with *${cliffhanger}*"}
+  ]
+}`;
 }
 
 // ─── Validator ────────────────────────────────────────────────────────────────
 
-const GENERIC_LABELS = new Set([
-  'GUARD', 'POLICE', 'CONSTABLE', 'GAWAH', 'CHOWKIDAR', 'DOCTOR', 'DR',
-  'NURSE', 'WITNESS', 'MANAGER', 'RECEPTIONIST', 'DRIVER', 'WAITER',
-  'WAITRESS', 'VOICE', 'STRANGER', 'OFFICER', 'INSPECTOR', 'DETECTIVE',
-  'PEON', 'CLERK', 'SECURITY', 'ANNOUNCER', 'CONDUCTOR', 'TEACHER',
-  'PRINCIPAL', 'AURAT', 'AADMI', 'LADKI', 'LADKA',
-]);
+function validate(scenes, cliffhanger, castNames) {
+  const hardIssues = [];
+  const softIssues = [];
 
-function mergeConsecutiveSpeaker(script) {
-  const lines = script.split('\n');
-  const out = [];
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (out.length > 0 && /^[A-Z][A-Z\s]+:\s/.test(trimmed)) {
-      const prev = out[out.length - 1].trim();
-      const prevSpeaker = prev.match(/^([A-Z][A-Z\s]+):/)?.[1]?.trim();
-      const curSpeaker  = trimmed.match(/^([A-Z][A-Z\s]+):/)?.[1]?.trim();
-      if (prevSpeaker && prevSpeaker === curSpeaker) {
-        out[out.length - 1] = prev + ' ' + trimmed.replace(/^[A-Z][A-Z\s]+:\s/, '');
-        continue;
-      }
-    }
-    out.push(line);
+  if (!scenes || scenes.length === 0) {
+    hardIssues.push('0 scenes produced');
+    return { pass: false, hardIssues, softIssues };
   }
-  return out.join('\n');
-}
-
-async function validate(epScenes, cliffhangerObjective, blueprint) {
-  const scenes = epScenes?.scenes || [];
-  const issues = [];
-  let cliffhangerCheck = null;
-
-  const allowedSpeakers = blueprint ? new Set([
-    blueprint.protagonist.name.toUpperCase(),
-    ...blueprint.characters.map(c => c.name.toUpperCase()),
-  ]) : null;
-  const unknownSeen = new Set();
 
   for (let i = 0; i < scenes.length; i++) {
-    scenes[i].script = mergeConsecutiveSpeaker(scenes[i].script || '');
-    const script = scenes[i].script;
+    const script = scenes[i].script || '';
     const n = i + 1;
-    const dlg = script.split('\n').filter(l => /^[A-Z][A-Z\s]+:/.test(l.trim()));
-    for (const blk of [...script.matchAll(/\*([^*]+)\*/g)].map(m => m[1])) {
-      const wc = blk.trim().split(/\s+/).length;
-      if (wc > 35) issues.push(`Scene ${n}: action block ${wc} words (limit 35).`);
+
+    // Hard: cliffhanger must be last line of Scene 3
+    if (n === 3) {
+      const lines = script.split('\n').map(l => l.trim()).filter(Boolean);
+      const lastLine = lines[lines.length - 1];
+      if (lastLine !== `*${cliffhanger}*`) {
+        hardIssues.push(`Scene 3: cliffhanger not the final standalone *asterisk block*`);
+      }
     }
-    for (const line of script.split('\n').filter(l => l.trim() && !l.trim().startsWith('*'))) {
-      if (!/^[A-Z][A-Z\s.\d]+:\s/.test(line.trim()))
-        issues.push(`Scene ${n}: missing ALL-CAPS label: "${line.trim().slice(0, 50)}"`);
-    }
-    const wc = script.trim().split(/\s+/).length;
-    if (wc > 100) issues.push(`Scene ${n}: ${wc} words (limit 100).`);
-    if (dlg.length > 4) issues.push(`Scene ${n}: ${dlg.length} dialogue lines (limit 4).`);
-    if (allowedSpeakers) {
-      for (const [, label] of script.matchAll(/^([A-Z][A-Z\s._\d]+):/gm)) {
-        const name = label.trim();
-        const first = name.split(/[\s_]/)[0];
-        if (!allowedSpeakers.has(name) && !allowedSpeakers.has(first) && !GENERIC_LABELS.has(first) && !unknownSeen.has(name)) {
-          unknownSeen.add(name);
-          issues.push(`Scene ${n}: unknown speaker "${name}" — not in blueprint cast.`);
+
+    // Hard: unknown speaker
+    const dialogueLines = script.split('\n').filter(l => /^[A-Z][A-Z\s.]+:\s/.test(l.trim()));
+    if (castNames?.length) {
+      for (const dl of dialogueLines) {
+        const speaker = dl.split(':')[0].trim();
+        if (!castNames.includes(speaker)) {
+          hardIssues.push(`Scene ${n}: unknown speaker "${speaker}" — not in cast`);
         }
       }
     }
+
+    // Hard: same character twice in a row
+    for (let j = 0; j < dialogueLines.length - 1; j++) {
+      const s1 = dialogueLines[j].split(':')[0].trim();
+      const s2 = dialogueLines[j + 1].split(':')[0].trim();
+      if (s1 === s2) { hardIssues.push(`Scene ${n}: ${s1} speaks twice in a row`); break; }
+    }
+
+    // Hard: missing ALL-CAPS speaker label
+    const nonAction = script.split('\n').filter(l => l.trim() && !l.trim().startsWith('*'));
+    for (const line of nonAction) {
+      if (!/^[A-Z][A-Z\s.]+:\s/.test(line.trim())) {
+        hardIssues.push(`Scene ${n}: missing ALL-CAPS label: "${line.trim().slice(0, 60)}"`);
+      }
+    }
+
+    // Soft: total scene over 140 words
+    const wc = script.trim().split(/\s+/).length;
+    if (wc > 140) softIssues.push(`Scene ${n}: ${wc} words (limit 140).`);
+
+    // Soft: more than 5 dialogue lines
+    if (dialogueLines.length > 5) softIssues.push(`Scene ${n}: ${dialogueLines.length} dialogue lines (limit 5).`);
   }
 
-  // Cliffhanger objective check — LLM, async, fail-open on error
-  const scene3 = scenes[2];
-  if (scene3 && cliffhangerObjective) {
+  return { pass: hardIssues.length === 0, hardIssues, softIssues };
+}
+
+// ─── Write one episode (with retry) ──────────────────────────────────────────
+
+async function writeEpisode({ epNumber, branch, objectives, cliffhanger, blueprint, storyState, bannedLines, prevLastLine }) {
+  const sys = writerSystem(blueprint);
+  const castNames = [
+    blueprint.protagonist.name.toUpperCase(),
+    ...(blueprint.characters || []).map(c => c.name.toUpperCase()),
+  ];
+  const ep = blueprint.episodes[epNumber - 1];
+  const choiceLabel = branch === 'A' ? ep.choice_a?.label : branch === 'B' ? ep.choice_b?.label : null;
+
+  const userMsg = writerUserMsg({
+    epNumber,
+    title: blueprint.title,
+    objectives,
+    cliffhanger,
+    branch,
+    choiceLabel,
+    storyState,
+    bannedLines,
+    prevLastLine,
+  });
+
+  const attempts = [];
+  let finalScenes = null;
+  let finalIssues = [];
+  let degraded = false;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    let raw = '', parsed = null;
     try {
-      const messages = [
-        { role: 'system', content: 'You are a script quality checker. Answer with only YES or NO, then one sentence reason.' },
-        { role: 'user', content: `Did this Scene 3 script achieve the cliffhanger objective?\n\nOBJECTIVE: ${cliffhangerObjective}\n\nSCENE 3:\n${scene3.script}\n\nAnswer YES or NO and one sentence reason.` },
-      ];
-      const raw = await gptRaw(messages, 'gpt-5.4-mini', 100);
-      const pass = /^yes\b/i.test(raw.trim());
-      cliffhangerCheck = { pass, reason: raw.trim() };
-      if (!pass) issues.push(`Scene 3: cliffhanger objective not achieved. Evaluator: ${raw.trim()}`);
+      const res = await gptJSON(
+        [{ role: 'system', content: sys }, { role: 'user', content: userMsg }],
+        'gpt-5.4-mini', 2000
+      );
+      raw = res.raw;
+      parsed = res.parsed;
     } catch (e) {
-      cliffhangerCheck = { pass: true, reason: `validator_error: ${e.message}`, skipped: true };
+      attempts.push({ attempt, error: e.message });
+      if (attempt < 3) continue;
+      degraded = true;
+      finalIssues = [e.message];
+      break;
+    }
+
+    const scenes = parsed?.scenes || [];
+    const vr = validate(scenes, cliffhanger, castNames);
+    attempts.push({ attempt, rawOutput: raw, validatorResult: vr });
+
+    if (vr.pass && vr.softIssues.length === 0) {
+      finalScenes = { scenes };
+      break;
+    }
+
+    if (vr.pass && vr.softIssues.length > 0) {
+      // Soft issues only — keep but mark degraded
+      finalScenes = { scenes };
+      finalIssues = vr.softIssues;
+      degraded = true;
+      break;
+    }
+
+    // Hard issues — retry if attempts remain
+    if (attempt === 3) {
+      // On final attempt keep soft-pass output if available, otherwise degraded
+      if (scenes.length > 0) {
+        finalScenes = { scenes };
+        finalIssues = [...vr.hardIssues, ...vr.softIssues];
+        degraded = true;
+      } else {
+        degraded = true;
+        finalIssues = vr.hardIssues;
+      }
     }
   }
 
-  return { pass: issues.length === 0, issues, cliffhangerCheck };
+  return { result: finalScenes, issues: finalIssues, degraded, attempts, systemPrompt: sys, userMessage: userMsg };
+}
+
+// ─── Story State (Stage 3) ────────────────────────────────────────────────────
+
+const STORY_STATE_SYSTEM = `You summarize a completed episode of Katha (Indian interactive fiction) into a compact JSON story state. This state is passed to the screenwriter for the next episode to maintain continuity.
+
+Output ONLY valid JSON, no markdown fences:
+{
+  "relationships": [{"pair": "Name-Name", "state": "under 20 words"}],
+  "active_mysteries": ["under 20 words each"],
+  "emotional_state": "protagonist emotional state under 10 words",
+  "objects": ["props that carry story weight"],
+  "character_goals": ["under 20 words each"]
+}`;
+
+async function generateStoryState(episodeScript, blueprint, epLabel = '?') {
+  const msgs = [
+    { role: 'system', content: STORY_STATE_SYSTEM },
+    { role: 'user',   content: `Story: "${blueprint.title}" (${blueprint.genre})\n\nEpisode script:\n${episodeScript}` },
+  ];
+  try {
+    const { parsed } = await gptJSON(msgs, 'gpt-5.4-mini', 300);
+    return parsed;
+  } catch {
+    console.warn(`[STATE] EP${epLabel} state failed — null passed to next episode`);
+    return null;
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function lastLine(epResult) {
-  const scenes = epResult?.scenes || [];
+function lastLine(result) {
+  const scenes = result?.scenes || [];
   const last = scenes[scenes.length - 1];
-  if (!last?.script) return '';
-  return last.script.split('\n').map(l => l.trim()).filter(Boolean).at(-1) || '';
+  if (!last?.script) return null;
+  const lines = last.script.split('\n').filter(l => l.trim());
+  return lines[lines.length - 1] || null;
 }
 
-function collectBanned(episodeResults) {
+function scenesToScript(result) {
+  return (result?.scenes || []).map(s => s.script).join('\n\n');
+}
+
+function extractBannedLines(result) {
   const lines = [];
-  for (const ep of episodeResults) {
-    for (const sc of ep?.scenes || []) {
-      lines.push(...(sc.script || '').split('\n').filter(l => /^[A-Z][A-Z\s]+:/.test(l.trim())).map(l => l.trim()));
-    }
-  }
-  return lines.slice(-24);
-}
-
-// ─── Screenwriter system prompt (keep in sync with run-v6-story.mjs) ─────────
-
-function writerSystem(bp) {
-  return `You write one episode of three scenes for Katha, an Indian interactive fiction app.
-
-━━━ OUTPUT FORMAT ━━━
-Each scene is a single string in the "script" field.
-Action/setting goes inside *asterisks*. Dialogue goes outside asterisks, on its own line.
-EVERY dialogue line MUST start with the speaker's name in ALL-CAPS followed by a colon: "INDU: Main tumhein yaad hun Rahul?" — no exceptions.
-All character identifiers—including minor, background, or episodic characters (e.g., GAWAH, CHOWKIDAR, DR_SANYAL)—must be written entirely in English uppercase letters followed by a colon. No Devanagari or mixed casing allowed in the speaker label.
-Never have the same character speak twice in a row.
-Never nest asterisks.
-
-━━━ ACTION BLOCK RULES (CRITICAL) ━━━
-HARD LIMIT: Every *action block* must be under 35 words. If you need more, split into two blocks.
-If the opening action needs more than 35 words, break it into two blocks — arrival image first, then scene setup.
-
-LANGUAGE LAW — every *asterisk block* must follow this:
-- Written in spoken conversational Hindi — words people actually use talking, not writing novels.
-- English only where people use it naturally: "office", "phone", "deadline", "studio". Never as narration style.
-- Concrete physical actions only — what moved, what stopped, what made a sound.
-- Never use English narrative constructions inside asterisks.
-- COMPLETE SENTENCES ONLY. Every sentence in an action block must have a subject and a verb. No noun-phrase fragments. No em-dash shortcuts in place of a verb.
-
-WRONG: *She felt nervous as she entered the crowded room.*
-WRONG: *Mahalaxmi mandir ke bahar. Police van ruki hui. Rudra — aam insaan ab, handcuffed.* (fragments, no verbs)
-RIGHT: *Mahalaxmi mandir ke bahar police van ruki hui thi. Rudra jo ki ab ek aam insaan tha, usko handcuff kar lia.*
-WRONG: *Dadar auto se utri. Aunty ka flat.* (fragment, no verb, just labelling)
-RIGHT: *Auto ruka. Indu bahar nikli. Aunty ki khidki wahi thi, usko apna bachpan yaad aa gaya.*
-
-━━━ SCENE LENGTH ━━━
-Every scene (action + dialogue combined): under 100 words total.
-Max 4 dialogue lines per scene (2 exchanges). No exceptions.
-
-━━━ SCENE-TO-SCENE CONTINUITY ━━━
-No invisible gaps. Every scene transition must be accounted for.
-If no time has passed: Scene 2 picks up exactly where Scene 1 left off.
-If time has passed: First line names it explicitly — *Ek ghante baad.* *Raat ho gayi thi.*
-If location changed: First action block shows physical movement — *Woh waha se bhaagi. Auto pakda, aur Dadar ke liye nikal gayi.*
-NEVER just label a location. Show the movement.
-
-━━━ CRAFT ━━━
-Scene 1 of every episode: open mid-action. First 10 words must create an unanswered question.
-WRONG: *Indu neend se jaagi. Kal raat bahut kuch hua tha — Prabha ne temple mein bulaya tha, Rudra ki BMW bahar thi, ek choice thi. Abhi subah thi.*
-RIGHT: *Indu ke haath mein phone tha. Woh bahot zyaada garam tha, phir aur garam ho gaya. Screen par fingerprint nahi tha, wahan ki metal pighal gayi thi.*
-Show emotion through action only. Never state it.
-Callbacks and foreshadowing must echo a detail already visible in this episode. If a scene connects a phrase, gesture, or object to a character memory, that detail must have appeared earlier in the same episode — attributed clearly to the right character. Never plant a connection and its explanation in the same beat.
-Every object used in an action beat must connect to the scene's active conflict — not just to the character's general personality. A prop that could appear in any scene of any story is filler. If the scene is about a character hiding behind an app, the prop is the phone — not sticky notes, not a napkin fold.
-When a premise-level element appears for the first time in an episode — the anonymous app, a secret identity, a hidden relationship — show it before referencing it. One concrete action or exchange that lets the reader understand what it is. Never reference a premise element by pronoun ("the app", "woh sab") before the reader has seen it.
-Scene 3 MUST end on a strong cliffhanger that achieves the episode's cliffhanger objective. Let the scene's momentum choose the format — a spoken revelation, a physical action, a character's final gesture. The ending must feel earned by what came before, not inserted.
-Direct address (beta, yaar, sir, bhaiya, aunty) is the texture of Indian dialogue — use it.
-Never use "aunt" — always "Aunty".
-WRONG: INDU: Aunt, kahan ja rahi ho tum?
-RIGHT: INDU: Aunty, aap kahan ja rahi ho?
-One Sanskrit or Urdu loanword per scene maximum.
-Story rule physical tells (nosebleed, tie-knot, etc.) appear at most once per episode. Scale intensity to episode number — restrained in episodes 1-2, disruptive in 3-4, unravelling in 5-6.
-DO NOT introduce new named characters. The complete named cast is: ${bp.protagonist.name}${bp.characters.map(c => `, ${c.name}`).join('')}. These are the ONLY named people in this story. If a scene requires anyone else, use a role label only: GUARD, WITNESS, CHOWKIDAR — never invent a new proper name.
-
-━━━ STORY CONTEXT ━━━
-Genre: ${bp.genre} | City: ${bp.city}
-Story rules: ${bp.story_rules.join(' | ')}
-Secret (subtext only — never name it directly): ${bp.secret}
-Protagonist: ${bp.protagonist.name} | Nature: ${bp.protagonist.nature}
-Story goal: ${bp.protagonist.story_goal}
-Motivation: ${bp.protagonist.motivation}
-Past event (surface in subtext): ${bp.protagonist.past}
-Characters: ${bp.characters.map(c => `${c.name} (${c.role})`).join(', ')}
-
-PROTAGONIST VOICE CARD (rhythm reference, not lines to use):
-These are example rhythms for the protagonist's voice. Use them as a feel for how this character builds sentences. Do not transcribe these lines into scenes verbatim. Do not reuse a voice-card line across episodes. Each scene generates its own lines in this rhythm.
-How they speak casually: ${bp.protagonist.voice_card[0]}
-How they speak when uncertain: ${bp.protagonist.voice_card[1]}
-How they speak under pressure: ${bp.protagonist.voice_card[2]}
-
-━━━ ANTI-PATTERN ━━━
-WRONG: *She felt nervous as she entered the crowded room.*
-WRONG: *Rudra — aam insaan ab, handcuffed.* (em-dash in place of a verb — incomplete sentence)
-WRONG: Same character speaking twice in a row.
-
-WRONG — short reaction written as dialogue (causes double-speaker violation):
-PRABHA: Yeh Trishul Bindu hai. Tere andar chhupa ke rakha tha isko teri maa ne.
-KAVYA: Kya?
-KAVYA: Meri maa ne... matlab kya kar diya unhone?
-RIGHT — reaction goes inside asterisks, dialogue slot saved for the real line:
-PRABHA: Yeh Trishul Bindu hai. Tere andar chhupa ke rakha tha isko teri maa ne.
-*Indu ka muh khul gaya. Uske haath kaanpe.*
-INDU: Meri maa ne... matlab kya kar diya unhone?
-
-RIGHT — full action+dialogue:
-*Auto ruka. Indu bahar nikli. Aunty ki khidki wahi thi — sab kuch waise hi tha.*
-KABIR: Andar chalein?
-*Indu ne kuch nahi bola. Uska haath already garam tha.*
-
-━━━ EXAMPLE EPISODE ━━━
-This is what a correct episode looks like. Match this format exactly.
-
-SCENE 1:
-*Mahalaxmi mandir ke gate pe ek hi diya jal raha tha. Prabha ne Indu ko zameen par bitha ke mantra bolna shuru kara.*
-PRABHA: Aankhein band karo, Indu. Jo bhi dikhe, usse bhago mat.
-*Indu ne aankhein band ki. Diye ki lau ekdum se tezz ho gayi.*
-INDU: Prabha Aunty... kuch garam ho raha hai mere haath mein.
-*Prabha ne kuch nahi bola. Woh mantra bolti rahi.*
-
-SCENE 2:
-*Indu ki aankhein band thi. Phir use ek purana kamra dikhaayi dene laga. Kamre mein har taraf aag thi, andar ek aurat thi, darvaze par Rudra khada tha.*
-INDU: Yeh... yeh meri maa thi.
-PRABHA: Beta, haath roko. Abhi roko.
-*Indu ka haath anjaane mein uthne laga. Diye ki lau Indu ke haath tak kheench aayi.*
-
-SCENE 3:
-*Diye ki lau 10 feet tak badh gayi. Indu khadi ho gayi. Uski aankhein abhi bhi band thi.*
-PRABHA: Indu, ruko. Bahar kuch ho raha hai.
-*Indu ka badan kaanpne laga.*
-INDU: Mujhe rok nahi sakte ab, Aunty.
-*Mandir ki deewaar mein ek badi daraar aa gayi, upar se neeche tak.*`;
-}
-
-// ─── Story state extractor ────────────────────────────────────────────────────
-
-async function extractState(epResult, title, blueprint) {
-  const text = (epResult?.scenes || []).map(s => s.script).join('\n\n');
-  const castNames = blueprint
-    ? [blueprint.protagonist.name, ...blueprint.characters.map(c => c.name)].join(', ')
-    : 'only names from the episode';
-  const messages = [
-    { role: 'system', content: `Extract a compact story state from this episode script. Return ONLY valid JSON:
-{
-  "relationships": [{"pair": "Name1-Name2", "state": "one line"}],
-  "active_mysteries": ["..."],
-  "emotional_state": "Protagonist — one line",
-  "objects": ["significant objects introduced"],
-  "character_goals": ["who wants what"]
-}
-IMPORTANT: Use ONLY these character names in all fields: ${castNames}. Do not invent or introduce any other names.` },
-    { role: 'user', content: `Episode: "${title}"\n\n${text}` },
-  ];
-  const { parsed, raw } = await gptJSON(messages, 'gpt-5.4-mini', 500);
-  return { state: parsed, inputMessages: messages, rawOutput: raw };
-}
-
-// ─── Episode writer ───────────────────────────────────────────────────────────
-
-async function writeEpisode({ epNumber, branch, prevLastLine, choiceLabel, storyState, bannedLines, cliffhangerObjective, blueprint }) {
-  const epPlan = blueprint.episodes[epNumber - 1];
-  const isSingle = epNumber <= 2;
-  const objs = isSingle
-    ? epPlan.scene_objectives
-    : (branch === 'A' ? epPlan.scene_objectives_a : epPlan.scene_objectives_b);
-
-  const stateBlock  = storyState  ? `STORY STATE (maintain continuity):\n${JSON.stringify(storyState, null, 2)}` : '';
-  const prevBlock   = prevLastLine ? `Previous episode ended on: "${prevLastLine}" — Scene 1 must flow from this.` : 'This is Episode 1 — open mid-action, zero backstory.';
-  const branchBlock = choiceLabel  ? `BRANCH ORIGIN: The player chose "${choiceLabel}" at the end of Episode 2.\nThis is Branch ${branch}. It does not know about the other branch.\nEvery scene must feel causally connected to that choice.` : '';
-  const bannedBlock = bannedLines?.length ? `BANNED PHRASES (do not repeat or paraphrase):\n${bannedLines.join('\n')}` : '';
-
-  const systemContent = writerSystem(blueprint);
-  const userContent = `Write Episode ${epNumber}${branch ? ` (Branch ${branch})` : ''} of "${blueprint.title}" — "${epPlan.title}".
-
-${prevBlock}
-${branchBlock}
-${stateBlock}
-${bannedBlock}
-
-Scene objectives:
-1. ${objs[0]}
-2. ${objs[1]}
-3. ${objs[2]}
-
-CLIFFHANGER OBJECTIVE — Scene 3 must end achieving this narrative goal:
-${cliffhangerObjective}
-
-Choose dialogue or action format — whichever lands hardest given how the scene plays out.
-
-HARD LIMITS:
-- Every scene: under 100 total words
-- Every scene: max 4 dialogue lines
-- Every action block: under 35 words (split if needed)
-- Scene 2: show transition from Scene 1 — if location changed, show physical movement; if time passed, name it
-- Scene 3: same rule from Scene 2
-- Do NOT just label locations ("Dadar. Aunty ka flat.") — show one image that places the reader
-
-Output:
-{"scenes": [{"scene_number": 1, "script": "..."}, {"scene_number": 2, "script": "..."}, {"scene_number": 3, "script": "...ends on a strong cliffhanger achieving the objective"}]}`;
-
-  const messages = [{ role: 'system', content: systemContent }, { role: 'user', content: userContent }];
-  const attempts = [];
-  let best = null;
-  let bestIssues = [];
-
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const { parsed, raw } = await gptJSON(messages, 'gpt-5.4-mini', 2000);
-      const v = await validate(parsed, cliffhangerObjective, blueprint);
-      attempts.push({ attempt, rawOutput: raw, parsed, validatorResult: v });
-      best = parsed;
-      bestIssues = v.issues;
-      if (v.pass) {
-        return { result: parsed, issues: [], degraded: false, attempts, systemPrompt: systemContent, userMessage: userContent };
+  for (const sc of (result?.scenes || [])) {
+    for (const line of (sc.script || '').split('\n')) {
+      const t = line.trim();
+      if (t && !t.startsWith('*')) {
+        const after = t.replace(/^[A-Z][A-Z\s.]+:\s*/, '');
+        if (after.length > 5) lines.push(after);
       }
-    } catch (e) {
-      attempts.push({ attempt, rawOutput: null, parsed: null, validatorResult: null, error: e.message });
-      bestIssues = [`Generation error: ${e.message}`];
     }
   }
+  return lines.slice(0, 10);
+}
 
-  return { result: best, issues: bestIssues, degraded: true, attempts, systemPrompt: systemContent, userMessage: userContent };
+function epObjectives(ep, branch) {
+  if (!branch) return ep.scene_objectives || [];
+  return branch === 'A' ? (ep.scene_objectives_a || []) : (ep.scene_objectives_b || []);
 }
 
 // ─── Story orchestrator ───────────────────────────────────────────────────────
 
 async function generateStory(premise) {
-  const log = { premise, architect: null, episodeLogs: [], stateLogs: [] };
+  const log = { premise, architect: null, episodeLogs: [] };
 
   // Stage 1: Architect
   console.log(`\n[ARCHITECT] "${premise.slice(0, 70)}..."`);
   log.architect = await runArchitect(premise);
   const bp = log.architect.blueprint;
+  const castNames = [bp.protagonist.name.toUpperCase(), ...(bp.characters || []).map(c => c.name.toUpperCase())];
   console.log(`[ARCHITECT] Done — "${bp.title}" (${bp.genre}, ${bp.city})`);
 
-  const episodeResults = [];
-  let baseState = null;
+  // Episode 1 — single branch
+  const ep1 = bp.episodes[0];
+  console.log(`[EP1] Writing...`);
+  const pr1 = await writeEpisode({
+    epNumber: 1, branch: null,
+    objectives: epObjectives(ep1, null),
+    cliffhanger: ep1.target_cliffhanger,
+    blueprint: bp,
+    storyState: null, bannedLines: [], prevLastLine: null,
+  });
+  log.episodeLogs.push({ epNumber: 1, branch: null, ...pr1 });
+  console.log(`[EP1] ${pr1.degraded ? 'DEGRADED: ' + pr1.issues.join(' | ') : 'PASS'}`);
 
-  // Stage 2: Episodes 1 & 2
-  for (const epNum of [1, 2]) {
-    const epPlan = blueprint_ep(bp, epNum);
-    const cliffhangerObjective = epPlan.cliffhanger_objective;
-    const prevLast = epNum === 1 ? null : lastLine(episodeResults[0]?.result);
-    const banned = collectBanned(episodeResults.map(e => e?.result).filter(Boolean));
+  const state1 = await generateStoryState(scenesToScript(pr1.result), bp, '1');
+  const banned1 = extractBannedLines(pr1.result);
+  let prevLineA = lastLine(pr1.result);
+  let prevLineB = prevLineA;
+  let stateA = state1, stateB = state1;
+  let bannedA = [...banned1], bannedB = [...banned1];
 
-    console.log(`[EP${epNum}] Writing...`);
-    const epResult = await writeEpisode({ epNumber: epNum, branch: null, prevLastLine: prevLast, choiceLabel: null, storyState: baseState, bannedLines: banned, cliffhangerObjective, blueprint: bp });
-    episodeResults.push(epResult);
-    log.episodeLogs.push({ epNumber: epNum, branch: null, ...epResult });
-    console.log(`[EP${epNum}] ${epResult.degraded ? 'DEGRADED: ' + epResult.issues.join(' | ') : 'PASS'}`);
-
-    if (epResult.result) {
-      const st = await extractState(epResult.result, epPlan.title, bp);
-      baseState = st.state;
-      log.stateLogs.push({ epNumber: epNum, branch: null, ...st });
-    }
-  }
-
-  // Stage 3: Episodes 3-6 (parallel A+B pairs)
-  let stateA = baseState;
-  let stateB = baseState;
-  const brA = [];
-  const brB = [];
-
-  for (const epNum of [3, 4, 5, 6]) {
-    const epPlan = blueprint_ep(bp, epNum);
-    const choice  = blueprint_ep(bp, 2);
-    const prevA   = epNum === 3 ? lastLine(episodeResults[1]?.result) : lastLine(brA[brA.length - 1]?.result);
-    const prevB   = epNum === 3 ? lastLine(episodeResults[1]?.result) : lastLine(brB[brB.length - 1]?.result);
-    const banned  = collectBanned([...episodeResults, ...brA, ...brB].map(e => e?.result).filter(Boolean));
-
+  // Episodes 2-6 — branched A/B in parallel
+  for (const epNum of [2, 3, 4, 5, 6]) {
+    const ep = bp.episodes[epNum - 1];
     console.log(`[EP${epNum}A+B] Writing in parallel...`);
-    const [epA, epB] = await Promise.all([
-      writeEpisode({ epNumber: epNum, branch: 'A', prevLastLine: prevA, choiceLabel: choice.choice_a?.label, storyState: stateA, bannedLines: banned, cliffhangerObjective: epPlan.cliffhanger_objective_a, blueprint: bp }),
-      writeEpisode({ epNumber: epNum, branch: 'B', prevLastLine: prevB, choiceLabel: choice.choice_b?.label, storyState: stateB, bannedLines: banned, cliffhangerObjective: epPlan.cliffhanger_objective_b, blueprint: bp }),
+
+    const [prA, prB] = await Promise.all([
+      writeEpisode({
+        epNumber: epNum, branch: 'A',
+        objectives: epObjectives(ep, 'A'),
+        cliffhanger: ep.target_cliffhanger,
+        blueprint: bp,
+        storyState: stateA, bannedLines: bannedA, prevLastLine: prevLineA,
+      }),
+      writeEpisode({
+        epNumber: epNum, branch: 'B',
+        objectives: epObjectives(ep, 'B'),
+        cliffhanger: ep.target_cliffhanger,
+        blueprint: bp,
+        storyState: stateB, bannedLines: bannedB, prevLastLine: prevLineB,
+      }),
     ]);
+    log.episodeLogs.push({ epNumber: epNum, branch: 'A', ...prA });
+    log.episodeLogs.push({ epNumber: epNum, branch: 'B', ...prB });
+    console.log(`[EP${epNum}A] ${prA.degraded ? 'DEGRADED' : 'PASS'} | [EP${epNum}B] ${prB.degraded ? 'DEGRADED' : 'PASS'}`);
 
-    brA.push(epA); brB.push(epB);
-    log.episodeLogs.push({ epNumber: epNum, branch: 'A', ...epA });
-    log.episodeLogs.push({ epNumber: epNum, branch: 'B', ...epB });
-    console.log(`[EP${epNum}A] ${epA.degraded ? 'DEGRADED' : 'PASS'} | [EP${epNum}B] ${epB.degraded ? 'DEGRADED' : 'PASS'}`);
-
-    if (epNum < 6) {
-      const [stA, stB] = await Promise.all([
-        epA.result ? extractState(epA.result, epPlan.title + ' A', bp) : null,
-        epB.result ? extractState(epB.result, epPlan.title + ' B', bp) : null,
-      ]);
-      if (stA) { stateA = stA.state; log.stateLogs.push({ epNumber: epNum, branch: 'A', ...stA }); }
-      if (stB) { stateB = stB.state; log.stateLogs.push({ epNumber: epNum, branch: 'B', ...stB }); }
-    }
+    stateA = await generateStoryState(scenesToScript(prA.result), bp, `${epNum}A`);
+    stateB = await generateStoryState(scenesToScript(prB.result), bp, `${epNum}B`);
+    bannedA = [...bannedA, ...extractBannedLines(prA.result)].slice(-20);
+    bannedB = [...bannedB, ...extractBannedLines(prB.result)].slice(-20);
+    prevLineA = lastLine(prA.result);
+    prevLineB = lastLine(prB.result);
   }
 
   return log;
 }
 
-function blueprint_ep(bp, num) { return bp.episodes[num - 1]; }
+// ─── Script → App scene ───────────────────────────────────────────────────────
 
-// ─── Excel builder ────────────────────────────────────────────────────────────
+function scriptToScene(script) {
+  if (!script) return { hl: '', body: '', img: '' };
+  const lines = script.trim().split('\n').map(l => l.trim()).filter(Boolean);
+  let hl = '';
+  const bodyParts = [];
 
-function buildRows(log) {
-  const rows = [];
-  const sec  = (label)         => rows.push(['━━━ ' + label + ' ━━━', '']);
-  const row  = (label, content) => rows.push([label, typeof content === 'object' ? JSON.stringify(content, null, 2) : String(content ?? '')]);
-
-  sec('PREMISE');
-  row('Premise', log.premise);
-
-  sec('ARCHITECT');
-  row('System Prompt Sent', log.architect.systemPrompt);
-  row('User Message Sent', log.architect.userMessage);
-  row('Raw Output Received', log.architect.rawOutput);
-
-  sec('BLUEPRINT SUMMARY');
-  const bp = log.architect.blueprint;
-  row('Title', bp.title);
-  row('Genre', bp.genre);
-  row('City', bp.city);
-  row('Logline', bp.logline);
-  row('Secret', bp.secret);
-  row('Story Rules', bp.story_rules?.join('\n'));
-  row('Protagonist', bp.protagonist);
-  row('Characters', bp.characters);
-  for (const ep of (bp.episodes || [])) {
-    row(`Blueprint — Episode ${ep.episode_number}`, ep);
-  }
-
-  for (const epLog of log.episodeLogs) {
-    const lbl = `EP${epLog.epNumber}${epLog.branch || ''}`;
-    sec(lbl);
-    row(`${lbl} — Screenwriter System Prompt`, epLog.systemPrompt);
-    row(`${lbl} — Screenwriter User Message`, epLog.userMessage);
-    for (const att of (epLog.attempts || [])) {
-      row(`${lbl} — Attempt ${att.attempt} Raw Output`, att.rawOutput ?? att.error ?? '');
-      if (att.validatorResult) {
-        const vr = att.validatorResult;
-        let status = vr.pass ? 'PASS' : 'FAIL:\n' + vr.issues.join('\n');
-        if (vr.cliffhangerCheck) {
-          const cc = vr.cliffhangerCheck;
-          status += `\nCliffhanger: ${cc.skipped ? 'SKIPPED (validator error)' : (cc.pass ? 'ACHIEVED' : 'NOT ACHIEVED')} — ${cc.reason}`;
-        }
-        row(`${lbl} — Attempt ${att.attempt} Validator`, status);
+  for (const line of lines) {
+    if (line.startsWith('*') && line.endsWith('*')) {
+      const text = line.slice(1, -1).trim();
+      if (!hl) {
+        const m = text.match(/^(.+?[।.!?])\s*/);
+        hl = m ? m[1].trim() : text;
+        const rest = m ? text.slice(m[0].length).trim() : '';
+        if (rest) bodyParts.push(rest);
+      } else {
+        bodyParts.push(text);
       }
-    }
-    row(`${lbl} — Final Status`, epLog.degraded ? 'DEGRADED:\n' + epLog.issues.join('\n') : 'PASS');
-    for (const sc of (epLog.result?.scenes || [])) {
-      row(`${lbl} — Scene ${sc.scene_number} (final)`, sc.script);
+    } else {
+      bodyParts.push(line);
     }
   }
 
-  sec('STATE EXTRACTOR OUTPUTS');
-  for (const st of log.stateLogs) {
-    const lbl = `EP${st.epNumber}${st.branch || ''}`;
-    row(`${lbl} — State Input (user msg)`, st.inputMessages?.[1]?.content ?? '');
-    row(`${lbl} — State Raw Output`, st.rawOutput);
-    row(`${lbl} — State Parsed`, st.state);
-  }
-
-  return rows;
+  return { hl, body: bodyParts.join(' '), img: '' };
 }
 
-function writeExcel(logs) {
-  const XLSX = require('xlsx');
-  const wb = XLSX.utils.book_new();
+// ─── Log → App JSON ───────────────────────────────────────────────────────────
 
-  logs.forEach((log, i) => {
-    const title = log.architect?.blueprint?.title || `Story ${i + 1}`;
-    const rows = buildRows(log);
-    const ws = XLSX.utils.aoa_to_sheet([['Section', 'Content'], ...rows]);
-    ws['!cols'] = [{ wch: 50 }, { wch: 130 }];
-    XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 31));
+function buildAppStory(log) {
+  const bp = log.architect.blueprint;
+
+  function getScenes(epNum, branch) {
+    const entry = log.episodeLogs.find(e => e.epNumber === epNum && e.branch === branch);
+    return (entry?.result?.scenes || []).map(sc => scriptToScene(sc.script));
+  }
+
+  const episodes = [];
+
+  // EP1 — single branch + choice
+  const ep1bp = bp.episodes[0];
+  episodes.push({
+    title: `Episode 1`,
+    scenes: getScenes(1, null),
+    choice: {
+      q: ep1bp.choice_question || '',
+      A: { text: ep1bp.choice_a?.label || 'Choice A', sub: '', img: '' },
+      B: { text: ep1bp.choice_b?.label || 'Choice B', sub: '', img: '' },
+    },
   });
 
+  // EP2–5 — branched A/B + choice
+  for (const epNum of [2, 3, 4, 5]) {
+    const epbp = bp.episodes[epNum - 1];
+    episodes.push({
+      title: `Episode ${epNum}`,
+      scenesA: getScenes(epNum, 'A'),
+      scenesB: getScenes(epNum, 'B'),
+      choice: {
+        q: epbp.choice_question || '',
+        A: { text: epbp.choice_a?.label || 'Choice A', sub: '', img: '' },
+        B: { text: epbp.choice_b?.label || 'Choice B', sub: '', img: '' },
+      },
+    });
+  }
+
+  // EP6 — branched A/B, no choice
+  episodes.push({
+    title: `Episode 6`,
+    scenesA: getScenes(6, 'A'),
+    scenesB: getScenes(6, 'B'),
+  });
+
+  return { title: bp.title, genre: bp.genre, city: bp.city, logline: bp.logline, episodes };
+}
+
+// ─── JSON writer ──────────────────────────────────────────────────────────────
+
+function writeJSON(logs) {
+  const stories = logs.map(log => buildAppStory(log));
   const ts  = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const out = join(__dir, `stories-${ts}.xlsx`);
-  XLSX.writeFile(wb, out);
-  console.log(`\nExcel saved: ${out}`);
+  const out = join(__dir, `stories-${ts}.json`);
+  writeFileSync(out, JSON.stringify(stories, null, 2), 'utf8');
+  console.log(`\nJSON saved: ${out}`);
   return out;
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log('Katha v6 — generating 2 stories...\n');
+  console.log(`Katha v5 — generating ${PREMISES.length} stories...\n`);
   const logs = [];
   for (const premise of PREMISES) {
     console.log('\n' + '═'.repeat(70));
     const log = await generateStory(premise);
     logs.push(log);
   }
-  const out = writeExcel(logs);
+  const out = writeJSON(logs);
   console.log('\nDone. Open:', out);
 }
 

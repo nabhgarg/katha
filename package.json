@@ -1,0 +1,25 @@
+{
+  "name": "interactive-stories",
+  "version": "1.0.0",
+  "description": "A mobile-first interactive story app for Hinglish-speaking Tier 2/3 India. Players scroll a TikTok-style feed, tap into AI-generated 6-episode branching stories, and choose what happens at each episode end. Creators type a two-sentence idea and get a complete story in ~5–7 minutes.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nabhgarg/katha.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/nabhgarg/katha/issues"
+  },
+  "homepage": "https://github.com/nabhgarg/katha#readme",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.106.2",
+    "xlsx": "^0.18.5"
+  }
+}

@@ -7,3 +7,12 @@
 *.docx
 test-output-*/
 design-audit*/
+node_modules/
+.env
+*.xlsx
+stories-*.json
+stories-sheet.csv
+katha-stories-review.csv
+screenwriter-examples-review.csv
+episode_example.png
+episode\ example_2.png

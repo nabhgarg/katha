@@ -3630,6 +3630,18 @@ function closeSave() {
 }
 
 /* ---------- INIT ---------- */
+/* ---------- DEV: load generated story from JSON ---------- */
+window.loadGeneratedStory = async function(jsonPath, index = 0) {
+  const res = await fetch(jsonPath);
+  const stories = await res.json();
+  const s = stories[index];
+  if (!s) { console.error('No story at index', index); return; }
+  CURRENT_STORY = s;
+  CURRENT_CREDIT_MAP = [];
+  startStory();
+  console.log(`Loaded: "${s.title}" (${s.genre})`);
+};
+
 window.addEventListener('load', async () => {
   const bl = document.getElementById('build-label');
   if (bl) bl.textContent = 'build ' + _BUILD;
