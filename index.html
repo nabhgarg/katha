@@ -1887,10 +1887,13 @@ function startStory() {
 function currentSceneList() {
   const ep = CURRENT_STORY.episodes[ST.ep];
   if (!ep) return null;
-  if (ep.scenes) return ep.scenes; // ep1 single path
-  // For eps 2+: use the choice made in the previous episode
-  const prevChoice = ST.choices[ST.ep - 1];
-  if (prevChoice === 'A' && ep.scenesA) return ep.scenesA;
+  if (ep.scenes) return ep.scenes; // EP1 or EP2 single path
+  // EP3-6: walk back to find the most recent choice (only EP2 stores one)
+  let branch = null;
+  for (let i = ST.ep - 1; i >= 0; i--) {
+    if (ST.choices[i]) { branch = ST.choices[i]; break; }
+  }
+  if (branch === 'A' && ep.scenesA) return ep.scenesA;
   if (ep.scenesB) return ep.scenesB;
   return ep.scenesA || null;
 }
@@ -2030,10 +2033,11 @@ function advanceScene() {
   if (ep.choice) {
     renderChoice();
     showScreen('choice');
-  } else {
-    // Final episode (ep 6) — no choice, go to end
+  } else if (ST.ep >= CURRENT_STORY.episodes.length - 1) {
     renderEnd();
     showScreen('end');
+  } else {
+    ST.ep++; ST.scene = 0; renderScene();
   }
 }
 
@@ -2310,7 +2314,6 @@ async function stageArchitect(userPrompt) {
   "city": "Indian city",
   "secret": "one sentence — a specific past event involving a named character that the protagonist is hiding or hasn't faced",
   "logline": "one sentence: protagonist, disruption, stakes",
-  "story_rules": ["concrete and checkable constraint — if broken, any reader would notice", "key plot constraint a scene cannot contradict", "unique world or character detail"],
   "protagonist": {
     "name": "first name",
     "story_goal": "the concrete thing they want by episode 6 — a person, an answer, an escape, a confession",
@@ -2343,7 +2346,6 @@ GENRE FRAMEWORK:
 
 CORE PRINCIPLES:
 1. The "secret" is a specific hidden past event — a concrete fact, not an interpretation. It must name what happened, who was involved, and what was concealed. WRONG: "The protagonist carries guilt from his past." RIGHT: "Seven years ago Ravi hit a cyclist with his car, filed a false police report blaming the cyclist, and the family never learned the truth."
-2. story_rules must be CONCRETE and CHECKABLE — if broken in any episode, any reader would immediately notice. WRONG: "The faceless man represents fear." RIGHT: "Ravi has never owned or driven a vehicle since age 19 — he takes autos everywhere." Each rule is a specific constraint on character, world, or plot.
 3. target_cliffhanger is the exact Hinglish sentence Scene 3 ends on, word for word. It must be a physical impossibility or an external threat made visible — NOT internal reflection. WRONG: "Matlab, kya woh sab meri wajeh se tha?" (internal reflection). RIGHT: "Woh aadmi bina chehre ke, bina pair ki awaaz ke, seedha darwaze ke doosri taraf khada tha." (physical impossibility).
 4. choice_a and choice_b must encode a real character-level tension — each side sacrifices something different (survival vs loyalty, truth vs safety, self vs others). The label itself stays concrete and short (3-5 words, what the player does); the trade-off lives in what each choice causes in the next episode, not in spelled-out moral text. WRONG label: "Sacrifice your honour for safety." RIGHT label: "Chup raho aur nikalo." Let the player feel the cost; do not state it.
 5. Episodes must escalate. Ep1 establishes; eps 2-5 complicate and branch; ep6 resolves.
@@ -2405,9 +2407,8 @@ OUTPUT FORMAT (CRITICAL):
 - Action/setting goes inside *asterisks*. Dialogue goes outside asterisks, on its own line.
 - EVERY dialogue line MUST start with the speaker's name in ALL-CAPS followed by a colon: "RIYA: Yaar sun..." — no exceptions. No quotation marks. Never nest asterisks.
 - SCENE STRUCTURE: Open with an *action block*, then let the scene breathe. Dialogue can happen even when a character is alone — calling out, muttering, speaking into a phone. But never use dialogue to announce a discovery or state an emotion out loud ("Yeh marker... main isse pehchanta hoon" is exposition, not dialogue). Never have the same character speak twice in a row.
-- WORD LIMIT: Every *action block* must be under 35 words. Count before writing. If it exceeds 35 words, cut until it doesn't.
-- SCENE LENGTH: Every scene (action blocks + dialogue combined) must be under 80 words total. Count before writing. If it exceeds 80 words, cut dialogue lines first, then trim action blocks.
-- DIALOGUE CAP: Maximum 4 dialogue lines per scene (2 exchanges). No exceptions. Every extra dialogue line you are tempted to write must become an action beat instead — that trade is always better.
+- SCENE LENGTH: Every scene (action blocks + dialogue combined) must be under 140 words total. Count before writing. If it exceeds 140 words, cut dialogue lines first, then trim action blocks.
+- DIALOGUE CAP: Maximum 5 dialogue lines per scene. No exceptions. Every extra dialogue line you are tempted to write must become an action beat instead — that trade is always better.
 - WRONG: *Office mein sab log the. Tension tha.* / Kab aaya? / Abhi.
 - RIGHT: *Usne file table par rakh di, haath nahi kaanpe — bas ek baar.* / ROHAN: Kab aaya? / *Woh ruk gaya, jawaab dene se pehle.* / ARJUN: Abhi hi.
 
@@ -2436,7 +2437,6 @@ CRAFT:
 
 STORY CONTEXT:
 Genre: ${blueprint.genre} | City: ${blueprint.city}
-Story rules: ${(blueprint.story_rules || []).join(' | ')}
 Secret (drives subtext — never name it directly): ${blueprint.secret || ''}
 Protagonist: ${blueprint.protagonist?.name}
 Protagonist nature: ${blueprint.protagonist?.nature || ''}
@@ -2467,9 +2467,8 @@ CLIFFHANGER REQUIREMENT: Scene 3 must end with this sentence copied word for wor
 *${epPlan.target_cliffhanger || ''}*
 
 HARD LIMITS — check before outputting:
-- Every scene: under 80 total words
-- Every scene: max 4 dialogue lines (2 exchanges)
-- Every action block: under 35 words
+- Every scene: under 140 total words
+- Every scene: max 5 dialogue lines
 
 Output:
 {
@@ -2513,16 +2512,7 @@ function stageValidate(epScenes, blueprint, episodeNumber = 1) {
       }
     }
 
-    // Check 3: action blocks over 35 words
-    const actionBlocks = [...script.matchAll(/\*([^*]+)\*/g)].map(m => m[1]);
-    for (const block of actionBlocks) {
-      const wordCount = block.trim().split(/\s+/).length;
-      if (wordCount > 35) {
-        issues.push(`Scene ${sceneNum}: action block exceeds 35 words (${wordCount} words): "${block.trim().slice(0, 60)}..."`);
-      }
-    }
-
-    // Check 4: dialogue lines missing ALL-CAPS speaker label
+    // Check 3: dialogue lines missing ALL-CAPS speaker label
     const allLines = script.split('\n').filter(l => l.trim() && !l.trim().startsWith('*'));
     for (const line of allLines) {
       if (!/^[A-Z][A-Z\s]+:\s/.test(line.trim())) {
@@ -2530,15 +2520,15 @@ function stageValidate(epScenes, blueprint, episodeNumber = 1) {
       }
     }
 
-    // Check 5: total scene word count over 80
+    // Check 4: total scene word count over 140
     const totalWords = script.trim().split(/\s+/).length;
-    if (totalWords > 80) {
-      issues.push(`Scene ${sceneNum}: total scene length is ${totalWords} words (limit: 80).`);
+    if (totalWords > 140) {
+      issues.push(`Scene ${sceneNum}: total scene length is ${totalWords} words (limit: 140).`);
     }
 
-    // Check 6: dialogue lines over 4 (2 exchanges)
-    if (dialogueLines.length > 4) {
-      issues.push(`Scene ${sceneNum}: ${dialogueLines.length} dialogue lines (limit: 4).`);
+    // Check 5: dialogue lines over 5
+    if (dialogueLines.length > 5) {
+      issues.push(`Scene ${sceneNum}: ${dialogueLines.length} dialogue lines (limit: 5).`);
     }
   }
 
@@ -2676,7 +2666,7 @@ function assembleStoryV3(blueprint, allEpisodes, coverImg) {
     title: blueprint.title,
     genre: blueprint.genre,
     cover_img: coverImg || '',
-    version: 'v3',
+    version: 'v8',
     episodes
   };
 }

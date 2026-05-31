@@ -1,6 +1,7 @@
-// generate-stories.mjs — Katha v6 pipeline: Architect → Screenwriter → Validator
+// generate-stories-v8.mjs — Katha v8 pipeline: Architect → Screenwriter → Validator
 // EP1+EP2 single branch, ONE choice at end of EP2, EP3-6 branch A/B.
-// Separate cliffhangers per branch (EP3-6). v5 models and scene limits.
+// Architect: gpt-5.4 | Screenwriter/State: gpt-5.4-mini
+// Scene limits: 140 words / 5 dialogue lines. No story_rules. No action block limit.
 
 import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -9,26 +10,17 @@ import { Buffer } from 'buffer';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 
-const OPENAI_KEY = readFileSync(join(__dir, '.env'), 'utf8')
-  .match(/OPENAI_API_KEY\s*=\s*"?([^"\n]+)"?/)?.[1]?.trim();
+const envText = readFileSync(join(__dir, '.env'), 'utf8');
+
+const OPENAI_KEY = envText.match(/OPENAI_API_KEY\s*=\s*"?([^"\n]+)"?/)?.[1]?.trim();
 if (!OPENAI_KEY) { console.error('No OPENAI_API_KEY in .env'); process.exit(1); }
 
 const PREMISES = [
-  // ROMANCE
-  'Mumbai mein do rival stand-up comedians ko ek romantic-comedy web-series co-write karni padti hai — jabki dono yeh chhupa rahe hain ki teen saal pehle unki shaadi hone wali thi aur woh rishta behad buri tarah toot gaya tha.',
-  'Bengaluru ka ek cynical food inspector aur ek cloud-kitchen chef roz compliance audits pe ladte hain — unhe nahi pata ki woh dono raat ko ek anonymous poetry app par ek doosre ko chup-chaap dilasa dete hain.',
-  // HORROR
-  'Ek Delhi tech-bro apne luxury apartment ke liye ek advanced smart-home AI laata hai — phir dheere dheere usse samajh aata hai ki AI uski marhi hui dadi ki awaaz aur andaaz copy karne laga hai.',
-  'Kolkata ke ek purane single-screen cinema ka midnight-shift projectionist dekhta hai ki ek vintage film ke background extras dheere dheere apna sar ghumakar seedha uski taraf dekhne lage hain.',
-  // MYTHOLOGY REIMAGINED
-  'Ashwatthama — dard bhari amarta ka shraap liye hua — aaj-kal modern Varanasi mein ek thaka-haara late-night trauma surgeon hai, jab achanak ek mysterious patient ke zaKhm mein woh ancient celestial weapon ka nishaan pehchaanta hai.',
-  'Delhi ke ek cutthroat corporate empire ki ladaai mein ek brilliant lekin unacknowledged executive ko pata chalta hai ki uska katta rival CEO actually wahi maa hai jisne use paida hote hi chhod diya tha.',
-  // FAMILY DRAMA
-  'South Delhi ki ek ameer matriarch apni poori jaydaad apne estranged middle-class driver ke naam kar jaati hai — ab uske teen ultra-privileged corporate bachon ko settlement ke liye uske ghar mein rehna padega.',
-  'Hyderabad ke ek elite family dinner mein beti galti se apne baap ka phone screen cast kar deti hai — aur poori family dekhti hai ki ussi sheher mein ek bilkul alag doosra parivaar bhi hai.',
+  'Ek famous detective ko ek aisi crime scene par bulaya gaya jahan victims ki body par wahi nishaan hain jo uski apni diary mein bane hain.',
+  'Ek corporate office mein boss aur employee jo din bhar ek dusre se ladte hain, par raat ko wahi dono ek anonymous dating app par best friends bane baithe hain.',
 ];
 
-// ─── API ─────────────────────────────────────────────────────────────────────
+// ─── API: OpenAI ──────────────────────────────────────────────────────────────
 
 async function gptRaw(messages, model, maxTokens) {
   const maxRetries = 4;
@@ -146,11 +138,11 @@ Episodes 4–5: same structure as episode 3 (scene_objectives_a, scene_objective
 Episode 6: same structure as episodes 4–5 — story ends here, no further episodes.`;
 
 async function runArchitect(premise) {
-  const messages = [
-    { role: 'system', content: ARCHITECT_SYSTEM },
-    { role: 'user',   content: `Premise: ${premise}` },
-  ];
-  const { parsed: blueprint, raw: rawOutput } = await gptJSON(messages, 'gpt-5.4', 8000);
+  const { parsed: blueprint, raw: rawOutput } = await gptJSON(
+    [{ role: 'system', content: ARCHITECT_SYSTEM }, { role: 'user', content: `Premise: ${premise}` }],
+    'gpt-5.4',
+    8000
+  );
   return { blueprint, rawOutput, systemPrompt: ARCHITECT_SYSTEM, userMessage: `Premise: ${premise}` };
 }
 
@@ -404,7 +396,7 @@ async function writeEpisode({ epNumber, branch, objectives, cliffhanger, bluepri
   return { result: finalScenes, issues: finalIssues, degraded, attempts, systemPrompt: sys, userMessage: userMsg };
 }
 
-// ─── Story State (Stage 3) ────────────────────────────────────────────────────
+// ─── Story State (Stage 4) ────────────────────────────────────────────────────
 
 const STORY_STATE_SYSTEM = `You summarize a completed episode of Katha (Indian interactive fiction) into a compact JSON story state. This state is passed to the screenwriter for the next episode to maintain continuity.
 
@@ -418,12 +410,14 @@ Output ONLY valid JSON, no markdown fences:
 }`;
 
 async function generateStoryState(episodeScript, blueprint, epLabel = '?') {
-  const msgs = [
-    { role: 'system', content: STORY_STATE_SYSTEM },
-    { role: 'user',   content: `Story: "${blueprint.title}" (${blueprint.genre})\n\nEpisode script:\n${episodeScript}` },
-  ];
   try {
-    const { parsed } = await gptJSON(msgs, 'gpt-5.4-mini', 500);
+    const { parsed } = await gptJSON(
+      [
+        { role: 'system', content: STORY_STATE_SYSTEM },
+        { role: 'user', content: `Story: "${blueprint.title}" (${blueprint.genre})\n\nEpisode script:\n${episodeScript}` },
+      ],
+      'gpt-5.4-mini', 500
+    );
     return parsed;
   } catch {
     console.warn(`[STATE] EP${epLabel} state failed — null passed to next episode`);
@@ -515,17 +509,16 @@ async function generateStory(premise) {
   const bp = log.architect.blueprint;
   console.log(`[ARCHITECT] Done — "${bp.title}" (${bp.genre}, ${bp.city})`);
 
-  // Stage 1b: Cover image (parallel-safe, non-blocking)
+  // Cover image (non-blocking)
   console.log(`[IMG] Generating cover image...`);
   log.coverImg = await generateCoverImage(bp);
-  console.log(`[IMG] ${log.coverImg ? 'Done' : 'Skipped (failed)'}`);
+  console.log(`[IMG] ${log.coverImg ? 'Done' : 'Skipped'}`);
 
-  // EP2 blueprint for choice labels used in EP3-6
   const ep2bp = bp.episodes[1];
   const choiceLabelA = ep2bp?.choice_a?.label || 'Choice A';
   const choiceLabelB = ep2bp?.choice_b?.label || 'Choice B';
 
-  // ── Episode 1 — single branch ──────────────────────────────────────────────
+  // ── Episode 1 ─────────────────────────────────────────────────────────────
   const ep1bp = bp.episodes[0];
   console.log(`[EP1] Writing...`);
   const pr1 = await writeEpisode({
@@ -541,7 +534,7 @@ async function generateStory(premise) {
   const state1 = await generateStoryState(scenesToScript(pr1.result), bp, '1');
   const banned1 = extractBannedLines(pr1.result);
 
-  // ── Episode 2 — single branch + choice ────────────────────────────────────
+  // ── Episode 2 ─────────────────────────────────────────────────────────────
   console.log(`[EP2] Writing...`);
   const pr2 = await writeEpisode({
     epNumber: 2, branch: null,
@@ -558,13 +551,12 @@ async function generateStory(premise) {
   const state2 = await generateStoryState(scenesToScript(pr2.result), bp, '2');
   const bannedShared = [...banned1, ...extractBannedLines(pr2.result)].slice(-24);
 
-  // Both branches start from EP2's state and shared banned lines
   let stateA = state2, stateB = state2;
   let bannedA = [...bannedShared], bannedB = [...bannedShared];
   let prevLineA = lastLine(pr2.result);
   let prevLineB = prevLineA;
 
-  // ── Episodes 3–6 — branched A/B in parallel ───────────────────────────────
+  // ── Episodes 3–6 (A/B in parallel) ───────────────────────────────────────
   for (const epNum of [3, 4, 5, 6]) {
     const epbp = bp.episodes[epNum - 1];
     console.log(`[EP${epNum}A+B] Writing in parallel...`);
@@ -642,13 +634,11 @@ function buildAppStory(log) {
 
   const episodes = [];
 
-  // EP1 — single branch, NO choice
   episodes.push({
     title: 'Episode 1',
     scenes: getScenes(1, null),
   });
 
-  // EP2 — single branch, WITH the one choice
   const ep2bp = bp.episodes[1];
   episodes.push({
     title: 'Episode 2',
@@ -660,8 +650,7 @@ function buildAppStory(log) {
     },
   });
 
-  // EP3–5 — A/B branches, NO choice
-  for (const epNum of [3, 4, 5]) {
+  for (const epNum of [3, 4, 5, 6]) {
     episodes.push({
       title: `Episode ${epNum}`,
       scenesA: getScenes(epNum, 'A'),
@@ -669,14 +658,7 @@ function buildAppStory(log) {
     });
   }
 
-  // EP6 — A/B branches, NO choice, story ends
-  episodes.push({
-    title: 'Episode 6',
-    scenesA: getScenes(6, 'A'),
-    scenesB: getScenes(6, 'B'),
-  });
-
-  return { title: bp.title, genre: bp.genre, city: bp.city, logline: bp.logline, cover_img: log.coverImg || '', episodes };
+  return { version: 'v8', title: bp.title, genre: bp.genre, city: bp.city, logline: bp.logline, cover_img: log.coverImg || '', episodes };
 }
 
 // ─── JSON writer ──────────────────────────────────────────────────────────────
@@ -693,7 +675,7 @@ function writeJSON(logs) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(`Katha v6 — generating ${PREMISES.length} stories...\n`);
+  console.log(`Katha v8 — generating ${PREMISES.length} stories...\n`);
   const logs = [];
   for (const premise of PREMISES) {
     console.log('\n' + '═'.repeat(70));

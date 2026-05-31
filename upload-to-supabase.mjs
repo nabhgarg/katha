@@ -9,6 +9,7 @@
 //   SUPABASE_PASSWORD=yourpassword
 
 import { readFileSync } from 'fs';
+import { Buffer } from 'buffer';
 import readline from 'readline';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -67,6 +68,31 @@ async function main() {
 
   let ok = 0, fail = 0;
   for (const story of stories) {
+    // Upload base64 cover image to Supabase Storage and replace with public URL
+    if (story.cover_img && story.cover_img.startsWith('data:')) {
+      try {
+        const match = story.cover_img.match(/^data:(image\/\w+);base64,(.+)$/);
+        if (match) {
+          const mime = match[1];
+          const ext  = mime.split('/')[1] || 'jpg';
+          const buf  = Buffer.from(match[2], 'base64');
+          const path = `covers/${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+          const { error: upErr } = await supabase.storage.from('story-assets').upload(path, buf, { contentType: mime, upsert: false });
+          if (upErr) {
+            console.warn(`  IMG  "${story.title}" — storage upload failed: ${upErr.message}`);
+            story.cover_img = '';
+          } else {
+            const { data: urlData } = supabase.storage.from('story-assets').getPublicUrl(path);
+            story.cover_img = urlData.publicUrl;
+            console.log(`  IMG  "${story.title}" — uploaded cover`);
+          }
+        }
+      } catch (e) {
+        console.warn(`  IMG  "${story.title}" — image error: ${e.message}`);
+        story.cover_img = '';
+      }
+    }
+
     const payload = JSON.stringify(story);
     if (payload.length > 500000) {
       console.warn(`  SKIP "${story.title}" — payload too large (${payload.length} bytes)`);
