@@ -1372,13 +1372,15 @@
 
     <!-- =================== PLAYER =================== -->
     <section id="s-player" class="screen">
+      <audio id="scene-audio" preload="auto" style="display:none;"></audio>
       <div class="scene-fallback"></div>
-      <img id="scene-img" class="scene-img" src="" alt="" onerror="this.style.display='none'">
+      <img id="scene-img" class="scene-img" src="" alt="" onerror="this.style.display:'none'">
       <div class="scene-grad"></div>
       <div class="player-tap" id="player-tap" onclick="advanceScene()"></div>
       <div class="player-top">
         <button class="close-x" style="position:static;" onclick="navTo('feed')" aria-label="close">×</button>
         <div class="ep-dots" id="ep-dots"></div>
+        <button id="scene-mute-btn" onclick="toggleSceneAudio(event)" aria-label="mute" style="background:none;border:none;cursor:pointer;font-size:18px;opacity:0.8;padding:4px 6px;color:#fff;">🔊</button>
         <button id="player-back-btn" class="close-x" style="position:static;font-size:20px;opacity:0.7;" onclick="goBackScene()" aria-label="back">‹</button>
       </div>
       <div class="scene-progress" id="scene-progress"></div>
@@ -1821,6 +1823,11 @@ let CURRENT_CREDIT_MAP = CREDIT_MAP;
 
 /* ---------- SCREEN ROUTER ---------- */
 function showScreen(id) {
+  // Stop scene audio when leaving the player
+  if (id !== 'player') {
+    const audio = document.getElementById('scene-audio');
+    if (audio) { audio.pause(); audio.currentTime = 0; audio.src = ''; }
+  }
   // cleanup generating timers if leaving
   if (id !== 'generating') clearGenTimers();
   document.querySelectorAll('.screen').forEach(s => {
@@ -1960,8 +1967,39 @@ function renderScene() {
   const backBtn = document.getElementById('player-back-btn');
   if (backBtn) backBtn.style.visibility = (ST.scene === 0 && ST.ep === 0) ? 'hidden' : 'visible';
 
+  // Scene audio playback
+  playSceneAudio(s);
+
   renderEpDots();
   renderSceneProgress(scenes.length);
+}
+
+let _sceneAudioMuted = false;
+
+function playSceneAudio(scene) {
+  const audio = document.getElementById('scene-audio');
+  if (!audio) return;
+  audio.pause();
+  audio.currentTime = 0;
+  const src = scene?.audio_url || scene?.audio_b64 || '';
+  if (!src || _sceneAudioMuted) return;
+  audio.src = src;
+  audio.play().catch(() => {});
+}
+
+function toggleSceneAudio(e) {
+  e.stopPropagation();
+  _sceneAudioMuted = !_sceneAudioMuted;
+  const btn = document.getElementById('scene-mute-btn');
+  const audio = document.getElementById('scene-audio');
+  if (_sceneAudioMuted) {
+    if (audio) audio.pause();
+    if (btn) btn.textContent = '🔇';
+  } else {
+    if (btn) btn.textContent = '🔊';
+    const scenes = currentSceneList();
+    if (scenes) playSceneAudio(scenes[ST.scene]);
+  }
 }
 
 function goBackScene() {

@@ -465,6 +465,39 @@ function epObjectives(ep, branch) {
   return branch === 'A' ? (ep.scene_objectives_a || []) : (ep.scene_objectives_b || []);
 }
 
+// ─── TTS: scene audio ────────────────────────────────────────────────────────
+
+function scriptToTtsText(script) {
+  if (!script) return '';
+  return script.trim().split('\n').map(l => {
+    const t = l.trim();
+    if (!t) return '';
+    if (t.startsWith('*') && t.endsWith('*')) return t.slice(1, -1).trim();
+    // ALL-CAPS speaker label → Title Case for natural TTS pronunciation
+    return t.replace(/^([A-Z][A-Z\s.]+):\s*/, (_, name) =>
+      name.split(' ').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ') + ': '
+    );
+  }).filter(Boolean).join(' ');
+}
+
+async function generateSceneAudio(script) {
+  const text = scriptToTtsText(script);
+  if (!text) return '';
+  try {
+    const res = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
+      body: JSON.stringify({ model: 'tts-1', input: text, voice: 'nova', response_format: 'mp3' }),
+    });
+    if (!res.ok) { const t = await res.text(); throw new Error(`TTS HTTP ${res.status}: ${t.slice(0, 200)}`); }
+    const buf = await res.arrayBuffer();
+    return 'data:audio/mpeg;base64,' + Buffer.from(buf).toString('base64');
+  } catch (e) {
+    console.warn(`  [TTS] Scene audio failed: ${e.message}`);
+    return '';
+  }
+}
+
 // ─── Cover image ─────────────────────────────────────────────────────────────
 
 const GENRE_MOOD = {
@@ -597,8 +630,8 @@ async function generateStory(premise) {
 
 // ─── Script → App scene ───────────────────────────────────────────────────────
 
-function scriptToScene(script) {
-  if (!script) return { hl: '', body: '', img: '' };
+function scriptToScene(script, audio_b64 = '') {
+  if (!script) return { hl: '', body: '', img: '', audio_b64: '' };
   const lines = script.trim().split('\n').map(l => l.trim()).filter(Boolean);
   let hl = '';
   const bodyParts = [];
@@ -619,52 +652,60 @@ function scriptToScene(script) {
     }
   }
 
-  return { hl, body: bodyParts.join(' '), img: '' };
+  return { hl, body: bodyParts.join(' '), img: '', audio_b64 };
 }
 
 // ─── Log → App JSON ───────────────────────────────────────────────────────────
 
-function buildAppStory(log) {
+async function buildAppStory(log) {
   const bp = log.architect.blueprint;
 
-  function getScenes(epNum, branch) {
+  async function getScenes(epNum, branch) {
     const entry = log.episodeLogs.find(e => e.epNumber === epNum && e.branch === branch);
-    return (entry?.result?.scenes || []).map(sc => scriptToScene(sc.script));
+    const rawScenes = entry?.result?.scenes || [];
+    return Promise.all(rawScenes.map(async sc => {
+      const audio_b64 = await generateSceneAudio(sc.script);
+      return scriptToScene(sc.script, audio_b64);
+    }));
   }
 
-  const episodes = [];
+  console.log(`  [TTS] Generating scene audio (${[1,2,3,3,4,4,5,5,6,6].length * 3} scenes)...`);
 
-  episodes.push({
-    title: 'Episode 1',
-    scenes: getScenes(1, null),
-  });
+  const [ep1scenes, ep2scenes, ...branchedScenes] = await Promise.all([
+    getScenes(1, null),
+    getScenes(2, null),
+    getScenes(3, 'A'), getScenes(3, 'B'),
+    getScenes(4, 'A'), getScenes(4, 'B'),
+    getScenes(5, 'A'), getScenes(5, 'B'),
+    getScenes(6, 'A'), getScenes(6, 'B'),
+  ]);
 
+  const [ep3A, ep3B, ep4A, ep4B, ep5A, ep5B, ep6A, ep6B] = branchedScenes;
   const ep2bp = bp.episodes[1];
-  episodes.push({
-    title: 'Episode 2',
-    scenes: getScenes(2, null),
-    choice: {
-      q: ep2bp?.choice_question || '',
-      A: { text: ep2bp?.choice_a?.label || 'Choice A', sub: '', img: '' },
-      B: { text: ep2bp?.choice_b?.label || 'Choice B', sub: '', img: '' },
-    },
-  });
 
-  for (const epNum of [3, 4, 5, 6]) {
-    episodes.push({
-      title: `Episode ${epNum}`,
-      scenesA: getScenes(epNum, 'A'),
-      scenesB: getScenes(epNum, 'B'),
-    });
-  }
+  const episodes = [
+    { title: 'Episode 1', scenes: ep1scenes },
+    {
+      title: 'Episode 2', scenes: ep2scenes,
+      choice: {
+        q: ep2bp?.choice_question || '',
+        A: { text: ep2bp?.choice_a?.label || 'Choice A', sub: '', img: '' },
+        B: { text: ep2bp?.choice_b?.label || 'Choice B', sub: '', img: '' },
+      },
+    },
+    { title: 'Episode 3', scenesA: ep3A, scenesB: ep3B },
+    { title: 'Episode 4', scenesA: ep4A, scenesB: ep4B },
+    { title: 'Episode 5', scenesA: ep5A, scenesB: ep5B },
+    { title: 'Episode 6', scenesA: ep6A, scenesB: ep6B },
+  ];
 
   return { version: 'v8', title: bp.title, genre: bp.genre, city: bp.city, logline: bp.logline, cover_img: log.coverImg || '', episodes };
 }
 
 // ─── JSON writer ──────────────────────────────────────────────────────────────
 
-function writeJSON(logs) {
-  const stories = logs.map(log => buildAppStory(log));
+async function writeJSON(logs) {
+  const stories = await Promise.all(logs.map(log => buildAppStory(log)));
   const ts  = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const out = join(__dir, `stories-${ts}.json`);
   writeFileSync(out, JSON.stringify(stories, null, 2), 'utf8');
@@ -682,7 +723,7 @@ async function main() {
     const log = await generateStory(premise);
     logs.push(log);
   }
-  const out = writeJSON(logs);
+  const out = await writeJSON(logs);
   console.log('\nDone. Open:', out);
 }
 

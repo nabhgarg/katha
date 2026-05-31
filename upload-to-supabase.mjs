@@ -93,6 +93,31 @@ async function main() {
       }
     }
 
+    // Upload base64 scene audio to Supabase Storage and replace with public URLs
+    let audioCount = 0;
+    const allScenes = [];
+    for (const ep of (story.episodes || [])) {
+      for (const key of ['scenes', 'scenesA', 'scenesB']) {
+        if (ep[key]) allScenes.push(...ep[key].map(sc => ({ sc, epRef: ep[key] })));
+      }
+    }
+    await Promise.all(allScenes.map(async ({ sc }) => {
+      if (!sc.audio_b64 || !sc.audio_b64.startsWith('data:audio')) return;
+      try {
+        const [header, b64] = sc.audio_b64.split(',');
+        const mime = header.match(/:(.*?);/)?.[1] || 'audio/mpeg';
+        const buf  = Buffer.from(b64, 'base64');
+        const path = `audio/${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`;
+        const { error: upErr } = await supabase.storage.from('story-assets').upload(path, buf, { contentType: mime, upsert: false });
+        if (upErr) { console.warn(`  AUDIO upload failed: ${upErr.message}`); sc.audio_b64 = ''; return; }
+        const { data: urlData } = supabase.storage.from('story-assets').getPublicUrl(path);
+        sc.audio_url = urlData.publicUrl;
+        sc.audio_b64 = '';
+        audioCount++;
+      } catch (e) { console.warn(`  AUDIO error: ${e.message}`); sc.audio_b64 = ''; }
+    }));
+    if (audioCount > 0) console.log(`  AUDIO "${story.title}" — ${audioCount} scenes uploaded`);
+
     const payload = JSON.stringify(story);
     if (payload.length > 500000) {
       console.warn(`  SKIP "${story.title}" — payload too large (${payload.length} bytes)`);
