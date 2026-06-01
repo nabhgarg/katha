@@ -105,9 +105,10 @@ async function main() {
       if (!sc.audio_b64 || !sc.audio_b64.startsWith('data:audio')) return;
       try {
         const [header, b64] = sc.audio_b64.split(',');
-        const mime = header.match(/:(.*?);/)?.[1] || 'audio/mpeg';
+        const mime = header.match(/:(.*?);/)?.[1] || 'audio/wav';
+        const ext  = mime === 'audio/mpeg' ? 'mp3' : 'wav';
         const buf  = Buffer.from(b64, 'base64');
-        const path = `audio/${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`;
+        const path = `audio/${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
         const { error: upErr } = await supabase.storage.from('story-assets').upload(path, buf, { contentType: mime, upsert: false });
         if (upErr) { console.warn(`  AUDIO upload failed: ${upErr.message}`); sc.audio_b64 = ''; return; }
         const { data: urlData } = supabase.storage.from('story-assets').getPublicUrl(path);

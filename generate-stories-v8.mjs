@@ -15,6 +15,9 @@ const envText = readFileSync(join(__dir, '.env'), 'utf8');
 const OPENAI_KEY = envText.match(/OPENAI_API_KEY\s*=\s*"?([^"\n]+)"?/)?.[1]?.trim();
 if (!OPENAI_KEY) { console.error('No OPENAI_API_KEY in .env'); process.exit(1); }
 
+const SARVAM_KEY = envText.match(/SARVAM_API_KEY\s*=\s*"?([^"\n]+)"?/)?.[1]?.trim();
+if (!SARVAM_KEY) { console.error('No SARVAM_API_KEY in .env'); process.exit(1); }
+
 const PREMISES = [
   'Ek famous detective ko ek aisi crime scene par bulaya gaya jahan victims ki body par wahi nishaan hain jo uski apni diary mein bane hain.',
   'Ek corporate office mein boss aur employee jo din bhar ek dusre se ladte hain, par raat ko wahi dono ek anonymous dating app par best friends bane baithe hain.',
@@ -465,7 +468,7 @@ function epObjectives(ep, branch) {
   return branch === 'A' ? (ep.scene_objectives_a || []) : (ep.scene_objectives_b || []);
 }
 
-// ─── TTS: scene audio ────────────────────────────────────────────────────────
+// ─── TTS: scene audio (Sarvam bulbul:v1, hi-IN, anushka) ────────────────────
 
 function scriptToTtsText(script) {
   if (!script) return '';
@@ -480,18 +483,58 @@ function scriptToTtsText(script) {
   }).filter(Boolean).join(' ');
 }
 
+function splitIntoChunks(text, maxChars = 490) {
+  if (text.length <= maxChars) return [text];
+  const chunks = [];
+  let remaining = text;
+  while (remaining.length > 0) {
+    if (remaining.length <= maxChars) { chunks.push(remaining); break; }
+    // Try to split at sentence boundary within maxChars
+    let cut = remaining.lastIndexOf('.', maxChars);
+    if (cut < maxChars * 0.5) cut = remaining.lastIndexOf(' ', maxChars);
+    if (cut <= 0) cut = maxChars;
+    chunks.push(remaining.slice(0, cut + 1).trim());
+    remaining = remaining.slice(cut + 1).trim();
+  }
+  return chunks.filter(Boolean);
+}
+
+function mergeWavBuffers(buffers) {
+  if (buffers.length === 1) return buffers[0];
+  const WAV_HEADER = 44;
+  const pcmParts = buffers.map(b => b.slice(WAV_HEADER));
+  const totalPcm = pcmParts.reduce((n, p) => n + p.length, 0);
+  const header = Buffer.from(buffers[0].slice(0, WAV_HEADER));
+  header.writeUInt32LE(totalPcm + 36, 4);   // ChunkSize
+  header.writeUInt32LE(totalPcm, 40);        // Subchunk2Size
+  return Buffer.concat([header, ...pcmParts]);
+}
+
 async function generateSceneAudio(script) {
   const text = scriptToTtsText(script);
   if (!text) return '';
+  const chunks = splitIntoChunks(text);
   try {
-    const res = await fetch('https://api.openai.com/v1/audio/speech', {
+    const res = await fetch('https://api.sarvam.ai/text-to-speech', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
-      body: JSON.stringify({ model: 'tts-1', input: text, voice: 'nova', response_format: 'mp3' }),
+      headers: { 'Content-Type': 'application/json', 'api-subscription-key': SARVAM_KEY },
+      body: JSON.stringify({
+        inputs: chunks,
+        target_language_code: 'hi-IN',
+        speaker: 'anushka',
+        model: 'bulbul:v2',
+        pitch: 0,
+        pace: 1.0,
+        loudness: 1.5,
+        speech_sample_rate: 22050,
+        enable_preprocessing: false,
+      }),
     });
     if (!res.ok) { const t = await res.text(); throw new Error(`TTS HTTP ${res.status}: ${t.slice(0, 200)}`); }
-    const buf = await res.arrayBuffer();
-    return 'data:audio/mpeg;base64,' + Buffer.from(buf).toString('base64');
+    const { audios } = await res.json();
+    if (!audios?.length) return '';
+    const bufs = audios.map(b64 => Buffer.from(b64, 'base64'));
+    return 'data:audio/wav;base64,' + mergeWavBuffers(bufs).toString('base64');
   } catch (e) {
     console.warn(`  [TTS] Scene audio failed: ${e.message}`);
     return '';
